@@ -4,7 +4,7 @@
   "description": "A self-hosted DSH plugin index for the Quick Memo / 随手记 bundle.",
   "plugins": [
     {
-      "name": "@local/flomo-notes",
+      "name": "dsh-notes",
       "title": {
         "en": "Quick Memo",
         "zh": "随手记"
@@ -32,11 +32,11 @@
       "versions": [
         {
           "version": "1.0.0",
-          "publishTimestamp": 1793975075,
+          "publishTimestamp": 1793975209,
           "source": {
             "type": "git",
             "url": "https://github.com/liusaipu/dsh-notes",
-            "commit": "8fd1d0160268d00e490dc783558e27e38819666f"
+            "commit": "3d415e462d95215f4a91bafec651dc951a25fbb6"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.5"
