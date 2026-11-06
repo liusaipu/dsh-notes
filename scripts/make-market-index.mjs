@@ -48,10 +48,11 @@ if (!npm) {
   if (!repo) throw new Error('Git indexes need --repo https://host/owner/repo (or use --npm).')
   if (!args.commit) throw new Error('Git indexes need --commit <40-hex-commit>. Run: git rev-parse HEAD')
   assertCommit(String(args.commit))
-} else if (name.startsWith('@local/')) {
+} else if (name === 'dsh-notes') {
   throw new Error(
-    'The @local scope is not publishable to npm. Rename the package to an unscoped name such as ' +
-      'dsh-flomo-notes (and update the client id and cordis.patch.yml) before using --npm.',
+    'The npm package name dsh-notes is already taken by another publisher. If you want an npm ' +
+      'release, rename the package to a name you own (for example dsh-flomo-notes), update the ' +
+      'client id and cordis.patch.yml, then run --npm again.',
   )
 }
 
