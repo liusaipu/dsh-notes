@@ -1,0 +1,3 @@
+- insert:
+    - id: flomo-notes
+      name: '@local/flomo-notes'

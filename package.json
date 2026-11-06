@@ -1,0 +1,54 @@
+{
+  "name": "@local/flomo-notes",
+  "version": "1.0.0",
+  "description": "A flomo-style quick-capture page in the DSH Desktop sidebar, synced across machines through an email folder.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "flomo",
+    "notes",
+    "memo",
+    "email-sync",
+    "imap"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.5"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "scripts/*.mjs"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  },
+  "author": "liusaipu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liusaipu/dsh-notes.git"
+  },
+  "homepage": "https://github.com/liusaipu/dsh-notes#readme"
+}
