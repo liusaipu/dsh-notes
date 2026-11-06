@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "title": "Quick Memo",
+  "description": "A self-hosted DSH plugin index for the Quick Memo / 随手记 bundle.",
+  "plugins": [
+    {
+      "name": "@local/flomo-notes",
+      "title": {
+        "en": "Quick Memo",
+        "zh": "随手记"
+      },
+      "description": {
+        "en": "A flomo-style inbox for quick thoughts, with optional email-folder sync across DSH Desktop machines.",
+        "zh": "像 flomo 一样随手记录想法，并可把笔记同步到邮箱文件夹，在多个 DSH Desktop 之间保持一致。"
+      },
+      "icon": "../icon.svg",
+      "author": "liusaipu",
+      "homepage": "https://github.com/liusaipu/dsh-notes",
+      "repository": {
+        "url": "https://github.com/liusaipu/dsh-notes"
+      },
+      "metadata": {
+        "keywords": [
+          "dsh-plugin",
+          "flomo",
+          "notes",
+          "memo",
+          "email-sync",
+          "imap"
+        ]
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1793975075,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/liusaipu/dsh-notes",
+            "commit": "8fd1d0160268d00e490dc783558e27e38819666f"
+          },
+          "engines": {
+            "dsh": ">=0.2.1-rc.5"
+          }
+        }
+      ]
+    }
+  ]
+}
