@@ -10,8 +10,8 @@
         "zh": "随手记"
       },
       "description": {
-        "en": "A flomo-style inbox for quick thoughts, with optional email-folder sync across DSH Desktop machines.",
-        "zh": "像 flomo 一样随手记录想法，并可把笔记同步到邮箱文件夹，在多个 DSH Desktop 之间保持一致。"
+        "en": "A flomo-style inbox with Markdown, image attachments, and optional email-folder sync across DSH Desktop machines.",
+        "zh": "像 flomo 一样随手记录，支持 Markdown 与图片，并可把笔记同步到邮箱文件夹，在多个 DSH Desktop 之间保持一致。"
       },
       "icon": "../icon.svg",
       "author": "liusaipu",
@@ -31,12 +31,12 @@
       },
       "versions": [
         {
-          "version": "1.0.0",
-          "publishTimestamp": 1793975209,
+          "version": "1.1.0",
+          "publishTimestamp": 1794229123,
           "source": {
             "type": "git",
             "url": "https://github.com/liusaipu/dsh-notes",
-            "commit": "3d415e462d95215f4a91bafec651dc951a25fbb6"
+            "commit": "e5d7ed93849616f977a7cd2f2e9b4bc6f5624545"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.5"
