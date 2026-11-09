@@ -7,7 +7,6 @@ window.__ModuleLoader__.load({
 
     const API = '/flomo/api'
     const CACHE_KEY = 'dsh.flomo-notes.cache.v1'
-    const TAG_SPLIT = /(#[\p{L}\p{N}_-]{1,32})/gu
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
 
     const EN = {
@@ -15,8 +14,19 @@ window.__ModuleLoader__.load({
       title: 'Quick Memo',
       subtitle: 'Catch what is on your mind. Your notes follow you through your mailbox.',
       'composer.placeholder': 'What is on your mind? Add #tags anywhere.',
-      'composer.hint': '#tags · ⌘ + Enter',
+      'composer.hint': '#tags · Markdown · paste images',
       'composer.submit': 'Capture',
+      'composer.markdownHint': 'Markdown · paste images',
+      'image.insert': 'Insert image',
+      'image.uploading': 'Uploading image…',
+      'image.added': 'Image added',
+      'image.failed': 'Image upload failed',
+      'image.alt': 'image',
+      'md.bold': 'Bold',
+      'md.code': 'Code',
+      'md.preview': 'Preview',
+      'md.edit': 'Edit source',
+      'md.boldText': 'bold text',
       'search.placeholder': 'Search notes or #tags',
       'search.clear': 'Clear search',
       'unit.notes': 'notes',
@@ -99,8 +109,19 @@ window.__ModuleLoader__.load({
       title: '随手记',
       subtitle: '记下此刻的想法，让笔记跟着邮箱走。',
       'composer.placeholder': '此刻想到什么？用 #标签 分类。',
-      'composer.hint': '#标签 · ⌘ + Enter',
+      'composer.hint': '#标签 · Markdown · 可粘贴图片',
       'composer.submit': '记下来',
+      'composer.markdownHint': 'Markdown · 可粘贴图片',
+      'image.insert': '插入图片',
+      'image.uploading': '图片上传中…',
+      'image.added': '图片已插入',
+      'image.failed': '图片上传失败',
+      'image.alt': '图片',
+      'md.bold': '加粗',
+      'md.code': '代码',
+      'md.preview': '预览',
+      'md.edit': '编辑源码',
+      'md.boldText': '加粗文字',
       'search.placeholder': '搜索笔记或 #标签',
       'search.clear': '清除搜索',
       'unit.notes': '条笔记',
@@ -259,33 +280,530 @@ window.__ModuleLoader__.load({
       return tags
     }
 
-    function renderText(text, onTag) {
-      const parts = String(text || '').split(TAG_SPLIT)
-      const output = []
-      parts.forEach((part, index) => {
-        if (!part) return
-        if (part.startsWith('#') && part.length > 1) {
-          const tag = part.slice(1)
-          output.push(
-            h(
-              'button',
-              {
-                key: index,
-                type: 'button',
-                className: 'qm-inline-tag',
-                onClick: (event) => {
-                  event.stopPropagation()
-                  onTag(tag)
+    const IMAGE_PATH = '/flomo/api/image/'
+    const IMAGE_ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/
+    const INLINE_MARKDOWN =
+      /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*|__([^_\n]+)__|~~([^~\n]+)~~|\*([^*\n]+)\*|_([^_\n]+)_|(https?:\/\/[^\s<>]+)|(#[^\s#]{1,32})/g
+
+    function imageSource(raw) {
+      const value = String(raw || '').trim()
+      if (value.startsWith('dsh-image:')) {
+        const id = value.slice('dsh-image:'.length)
+        return IMAGE_ID_PATTERN.test(id) ? IMAGE_PATH + encodeURIComponent(id) : ''
+      }
+      if (/^https?:\/\//i.test(value)) return value
+      return ''
+    }
+
+    function safeHref(raw) {
+      const value = String(raw || '').trim()
+      if (/^https?:\/\//i.test(value) || /^mailto:/i.test(value)) return value
+      return ''
+    }
+
+    function renderInline(text, ctx, prefix, depth) {
+      if (depth > 4) return [text]
+      const nodes = []
+      const re = new RegExp(INLINE_MARKDOWN.source, 'g')
+      let last = 0
+      let match
+      let index = 0
+      while ((match = re.exec(text))) {
+        if (match.index > last) nodes.push(text.slice(last, match.index))
+        const key = prefix + '-' + String(index++)
+        if (match[1] !== undefined) {
+          const alt = match[1] || (ctx && ctx.alt) || 'image'
+          const src = imageSource(match[2])
+          if (src) {
+            nodes.push(
+              h('img', {
+                key,
+                className: 'qm-md-img',
+                src,
+                alt,
+                loading: 'lazy',
+                decoding: 'async',
+                referrerPolicy: 'no-referrer',
+              }),
+            )
+          } else {
+            nodes.push(alt)
+          }
+        } else if (match[3] !== undefined) {
+          const href = safeHref(match[4])
+          if (!href) {
+            nodes.push(...renderInline(match[3], ctx, key + '-label', depth + 1))
+          } else {
+            nodes.push(
+              h(
+                'a',
+                {
+                  key,
+                  className: 'qm-md-link',
+                  href,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
                 },
-              },
-              part,
+                ...renderInline(match[3], ctx, key + '-label', depth + 1),
+              ),
+            )
+          }
+        } else if (match[5] !== undefined) {
+          nodes.push(h('code', { key, className: 'qm-md-inline-code' }, match[5]))
+        } else if (match[6] !== undefined || match[7] !== undefined) {
+          nodes.push(
+            h(
+              'strong',
+              { key },
+              ...renderInline(match[6] !== undefined ? match[6] : match[7], ctx, key + '-strong', depth + 1),
             ),
           )
-        } else {
-          output.push(part)
+        } else if (match[8] !== undefined) {
+          nodes.push(h('del', { key }, ...renderInline(match[8], ctx, key + '-del', depth + 1)))
+        } else if (match[9] !== undefined || match[10] !== undefined) {
+          nodes.push(
+            h(
+              'em',
+              { key },
+              ...renderInline(match[9] !== undefined ? match[9] : match[10], ctx, key + '-em', depth + 1),
+            ),
+          )
+        } else if (match[11] !== undefined) {
+          const href = safeHref(match[11])
+          if (href) {
+            nodes.push(
+              h(
+                'a',
+                { key, className: 'qm-md-link', href, target: '_blank', rel: 'noopener noreferrer' },
+                match[11],
+              ),
+            )
+          } else {
+            nodes.push(match[11])
+          }
+        } else if (match[12] !== undefined) {
+          const tag = match[12].slice(1)
+          if (ctx && typeof ctx.onTag === 'function') {
+            nodes.push(
+              h(
+                'button',
+                {
+                  key,
+                  type: 'button',
+                  className: 'qm-inline-tag',
+                  onClick: (event) => {
+                    event.stopPropagation()
+                    ctx.onTag(tag)
+                  },
+                },
+                match[12],
+              ),
+            )
+          } else {
+            nodes.push(match[12])
+          }
         }
+        last = re.lastIndex
+      }
+      if (last < text.length) nodes.push(text.slice(last))
+      return nodes
+    }
+
+    function tableSeparator(line) {
+      return /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line)
+    }
+
+    function isTableStart(lines, index) {
+      return (
+        index + 1 < lines.length &&
+        /\|/.test(lines[index] || '') &&
+        tableSeparator(lines[index + 1] || '')
+      )
+    }
+
+    function splitTableRow(line) {
+      let text = String(line || '').trim()
+      if (text.startsWith('|')) text = text.slice(1)
+      if (text.endsWith('|')) text = text.slice(0, -1)
+      return text.split('|').map((cell) => cell.trim())
+    }
+
+    function renderMarkdown(text, ctx) {
+      const source = String(text || '').replace(/\r\n?/g, '\n')
+      const lines = source.split('\n')
+      const blocks = []
+      let key = 0
+      let i = 0
+      const blank = (line) => /^\s*$/.test(line)
+      const startsBlock = (line) =>
+        /^\s*```/.test(line) ||
+        /^#{1,6}\s+/.test(line) ||
+        /^\s*>/.test(line) ||
+        /^\s*[-*+]\s+/.test(line) ||
+        /^\s*\d+[.)]\s+/.test(line) ||
+        /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)
+      const inline = (value, prefix) => renderInline(value, ctx || {}, prefix, 0)
+
+      while (i < lines.length) {
+        if (blank(lines[i])) {
+          i += 1
+          continue
+        }
+        const line = lines[i]
+        if (/^\s*```/.test(line)) {
+          const language = line.replace(/^\s*```/, '').trim()
+          const code = []
+          i += 1
+          while (i < lines.length && !/^\s*```/.test(lines[i])) {
+            code.push(lines[i])
+            i += 1
+          }
+          if (i < lines.length) i += 1
+          blocks.push(
+            h(
+              'pre',
+              { key: 'b' + String(key++), className: 'qm-md-pre' },
+              h('code', { className: language ? 'language-' + language : undefined }, code.join('\n')),
+            ),
+          )
+          continue
+        }
+        const heading = line.match(/^(#{1,6})\s+(.*)$/)
+        if (heading) {
+          const level = Math.min(heading[1].length + 2, 6)
+          const blockKey = 'b' + String(key++)
+          blocks.push(
+            h(
+              'h' + String(level),
+              { key: blockKey, className: 'qm-md-heading' },
+              ...inline(heading[2], blockKey + '-h'),
+            ),
+          )
+          i += 1
+          continue
+        }
+        if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+          blocks.push(h('hr', { key: 'b' + String(key++) }))
+          i += 1
+          continue
+        }
+        if (/^\s*>/.test(line)) {
+          const quote = []
+          while (i < lines.length && /^\s*>/.test(lines[i])) {
+            quote.push(lines[i].replace(/^\s*>\s?/, ''))
+            i += 1
+          }
+          const blockKey = 'b' + String(key++)
+          blocks.push(
+            h('blockquote', { key: blockKey }, ...inline(quote.join('\n'), blockKey + '-q')),
+          )
+          continue
+        }
+        if (isTableStart(lines, i)) {
+          const header = splitTableRow(lines[i])
+          i += 2
+          const rows = []
+          while (i < lines.length && !blank(lines[i]) && /\|/.test(lines[i])) {
+            rows.push(splitTableRow(lines[i]))
+            i += 1
+          }
+          const blockKey = 'b' + String(key++)
+          const headerRow = h(
+            'tr',
+            null,
+            ...header.map((cell, column) =>
+              h(
+                'th',
+                { key: blockKey + '-th-' + String(column) },
+                ...inline(cell, blockKey + '-th-' + String(column)),
+              ),
+            ),
+          )
+          const bodyRows = rows.map((row, rowIndex) =>
+            h(
+              'tr',
+              { key: blockKey + '-tr-' + String(rowIndex) },
+              ...header.map((_, column) =>
+                h(
+                  'td',
+                  { key: blockKey + '-td-' + String(rowIndex) + '-' + String(column) },
+                  ...inline(row[column] || '', blockKey + '-td-' + String(rowIndex) + '-' + String(column)),
+                ),
+              ),
+            ),
+          )
+          blocks.push(
+            h(
+              'div',
+              { key: blockKey, className: 'qm-md-table-wrap' },
+              h(
+                'table',
+                { className: 'qm-md-table' },
+                h('thead', null, headerRow),
+                bodyRows.length > 0 ? h('tbody', null, ...bodyRows) : null,
+              ),
+            ),
+          )
+          continue
+        }
+        const unordered = line.match(/^\s*[-*+]\s+(.*)$/)
+        if (unordered) {
+          const items = []
+          while (i < lines.length) {
+            const match = lines[i].match(/^\s*[-*+]\s+(.*)$/)
+            if (!match) break
+            items.push(match[1])
+            i += 1
+          }
+          const blockKey = 'b' + String(key++)
+          blocks.push(
+            h(
+              'ul',
+              { key: blockKey },
+              ...items.map((item, itemIndex) => {
+                const task = item.match(/^\[([ xX])\]\s+(.*)$/)
+                if (task) {
+                  return h(
+                    'li',
+                    { key: blockKey + '-li-' + String(itemIndex), className: 'qm-md-task' },
+                    h('input', {
+                      key: 'check',
+                      type: 'checkbox',
+                      checked: task[1].toLowerCase() === 'x',
+                      disabled: true,
+                      readOnly: true,
+                    }),
+                    ...inline(task[2], blockKey + '-li-' + String(itemIndex)),
+                  )
+                }
+                return h(
+                  'li',
+                  { key: blockKey + '-li-' + String(itemIndex) },
+                  ...inline(item, blockKey + '-li-' + String(itemIndex)),
+                )
+              }),
+            ),
+          )
+          continue
+        }
+        const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/)
+        if (ordered) {
+          const items = []
+          while (i < lines.length) {
+            const match = lines[i].match(/^\s*\d+[.)]\s+(.*)$/)
+            if (!match) break
+            items.push(match[1])
+            i += 1
+          }
+          const blockKey = 'b' + String(key++)
+          blocks.push(
+            h(
+              'ol',
+              { key: blockKey },
+              ...items.map((item, itemIndex) =>
+                h(
+                  'li',
+                  { key: blockKey + '-li-' + String(itemIndex) },
+                  ...inline(item, blockKey + '-li-' + String(itemIndex)),
+                ),
+              ),
+            ),
+          )
+          continue
+        }
+        const paragraph = []
+        while (
+          i < lines.length &&
+          !blank(lines[i]) &&
+          !startsBlock(lines[i]) &&
+          !isTableStart(lines, i)
+        ) {
+          paragraph.push(lines[i])
+          i += 1
+        }
+        if (paragraph.length === 0) {
+          paragraph.push(lines[i])
+          i += 1
+        }
+        const blockKey = 'b' + String(key++)
+        blocks.push(
+          h('p', { key: blockKey }, ...inline(paragraph.join('\n'), blockKey + '-p')),
+        )
+      }
+      return h('div', { className: 'qm-md' }, ...blocks)
+    }
+
+    function MarkdownNote({ text, onTag, alt }) {
+      return renderMarkdown(text, { onTag, alt })
+    }
+
+    const IMAGE_MAX_EDGE = 1600
+    const IMAGE_TARGET_BYTES = 900 * 1024
+    const IMAGE_HARD_BYTES = 1.5 * 1024 * 1024
+
+    function loadImageSource(file) {
+      if (typeof createImageBitmap === 'function') {
+        return createImageBitmap(file).catch(
+          () =>
+            new Promise((resolve, reject) => {
+              const image = new Image()
+              const url = URL.createObjectURL(file)
+              image.onload = () => {
+                URL.revokeObjectURL(url)
+                resolve(image)
+              }
+              image.onerror = () => {
+                URL.revokeObjectURL(url)
+                reject(new Error('无法读取图片'))
+              }
+              image.src = url
+            }),
+        )
+      }
+      return new Promise((resolve, reject) => {
+        const image = new Image()
+        const url = URL.createObjectURL(file)
+        image.onload = () => {
+          URL.revokeObjectURL(url)
+          resolve(image)
+        }
+        image.onerror = () => {
+          URL.revokeObjectURL(url)
+          reject(new Error('无法读取图片'))
+        }
+        image.src = url
       })
-      return output
+    }
+
+    function canvasBlob(canvas, type, quality) {
+      return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+    }
+
+    async function prepareImage(file) {
+      if (!file || !file.type || !file.type.startsWith('image/')) {
+        throw new Error('不是图片文件')
+      }
+      if (file.type === 'image/gif' && file.size <= IMAGE_HARD_BYTES) return file
+      const source = await loadImageSource(file)
+      const width = source.width || source.naturalWidth || 0
+      const height = source.height || source.naturalHeight || 0
+      if (!width || !height) throw new Error('无法读取图片尺寸')
+      let best = null
+      for (const [edge, quality] of [
+        [1600, 0.82],
+        [1280, 0.72],
+        [1024, 0.62],
+      ]) {
+        const scale = Math.min(1, edge / Math.max(width, height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(width * scale))
+        canvas.height = Math.max(1, Math.round(height * scale))
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error('无法处理图片')
+        context.drawImage(source, 0, 0, canvas.width, canvas.height)
+        const blob =
+          (await canvasBlob(canvas, 'image/webp', quality)) ||
+          (await canvasBlob(canvas, 'image/png'))
+        if (blob) {
+          best = blob
+          if (blob.size <= IMAGE_TARGET_BYTES) break
+        }
+      }
+      if (!best || best.size > IMAGE_HARD_BYTES) throw new Error('图片过大，请压缩后重试')
+      if (file.size <= best.size && file.size <= IMAGE_HARD_BYTES && file.type !== 'image/svg+xml') {
+        return file
+      }
+      return best
+    }
+
+    function readAsDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(new Error('无法读取图片'))
+        reader.readAsDataURL(blob)
+      })
+    }
+
+    function insertAtSelection(ref, current, setValue, snippet, block = true) {
+      const element = ref && ref.current
+      const start =
+        element && typeof element.selectionStart === 'number' ? element.selectionStart : current.length
+      const end =
+        element && typeof element.selectionEnd === 'number' ? element.selectionEnd : current.length
+      const before = current.slice(0, start)
+      const after = current.slice(end)
+      const left = block && before && !before.endsWith('\n') ? '\n' : ''
+      const right = block && after && !after.startsWith('\n') ? '\n' : ''
+      const insert = left + snippet + right
+      const next = before + insert + after
+      setValue(next)
+      if (element) {
+        requestAnimationFrame(() => {
+          try {
+            element.focus()
+            const position = start + insert.length
+            element.setSelectionRange(position, position)
+          } catch {
+            /* focus can fail while the card is closing */
+          }
+        })
+      }
+      return next
+    }
+
+    function ImageIcon() {
+      return h(
+        'svg',
+        {
+          width: 16,
+          height: 16,
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.8,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': true,
+        },
+        h('rect', { x: 3.5, y: 4.5, width: 17, height: 15, rx: 2.2 }),
+        h('circle', { cx: 8.3, cy: 9.2, r: 1.6 }),
+        h('path', { d: 'm4.5 17 5-5 3.2 3.2 3-2.8 4.3 4.1' }),
+      )
+    }
+
+    function ImageButton({ onFiles, disabled, title }) {
+      const inputRef = useRef(null)
+      return h(
+        React.Fragment,
+        null,
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'qm-tool',
+            title,
+            'aria-label': title,
+            disabled,
+            onClick: () => {
+              if (inputRef.current) inputRef.current.click()
+            },
+          },
+          ImageIcon(),
+        ),
+        h('input', {
+          ref: inputRef,
+          type: 'file',
+          accept: 'image/png,image/jpeg,image/webp,image/gif',
+          multiple: true,
+          style: { display: 'none' },
+          onChange: (event) => {
+            const files = Array.from(event.target.files || [])
+            event.target.value = ''
+            if (files.length > 0) onFiles(files)
+          },
+        }),
+      )
     }
 
     function relativeTime(value, tr) {
@@ -606,6 +1124,15 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 .qm-composer-text::placeholder{color:var(--dsw-alias-label-secondary);opacity:.72}
 .qm-composer-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .qm-hint{font-size:11.5px;color:var(--dsw-alias-label-secondary);opacity:.9}
+.qm-composer-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.qm-tools{display:flex;align-items:center;gap:2px}
+.qm-tool{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;font-weight:650;cursor:pointer;line-height:1}
+.qm-tool:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent);color:var(--dsw-alias-label-primary)}
+.qm-tool:disabled{opacity:.4;cursor:default}
+.qm-tool--text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.qm-tool--pill{width:auto;padding:0 8px;border-color:var(--dsw-alias-border-l1);font-family:inherit;font-size:11.5px;font-weight:500}
+.qm-tool--pill[aria-pressed="true"]{color:var(--dsw-alias-brand-primary);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent);background:color-mix(in srgb,var(--dsw-alias-brand-primary) 9%,transparent)}
+.qm-tool-code{font-size:11px;font-weight:inherit}
 .qm-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 0 2px}
 .qm-search{position:relative;display:flex;align-items:center;gap:7px;width:230px;max-width:100%;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);transition:border-color .15s,box-shadow .15s}
 .qm-search:focus-within{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
@@ -629,6 +1156,33 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 .qm-card:hover{border-color:color-mix(in srgb,var(--dsw-alias-label-primary) 16%,var(--dsw-alias-border-l1));box-shadow:0 2px 10px rgba(0,0,0,.035)}
 .qm-card:focus-within{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 40%,var(--dsw-alias-border-l1))}
 .qm-text{font-size:14.5px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;color:var(--dsw-alias-label-primary)}
+.qm-md{font-size:14.5px;line-height:1.72;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;color:var(--dsw-alias-label-primary)}
+.qm-md p{margin:0 0 8px}
+.qm-md p:last-child{margin-bottom:0}
+.qm-md h3,.qm-md h4,.qm-md h5,.qm-md h6{margin:12px 0 6px;font-weight:650;line-height:1.35;color:var(--dsw-alias-label-primary)}
+.qm-md h3{font-size:17px}
+.qm-md h4{font-size:15.5px}
+.qm-md h5{font-size:14.5px}
+.qm-md h6{font-size:14px}
+.qm-md h3:first-child,.qm-md h4:first-child,.qm-md h5:first-child,.qm-md h6:first-child{margin-top:0}
+.qm-md ul,.qm-md ol{margin:4px 0 9px;padding-left:22px}
+.qm-md li{margin:2px 0}
+.qm-md li::marker{color:var(--dsw-alias-label-secondary)}
+.qm-md blockquote{margin:8px 0;padding:2px 0 2px 12px;border-left:3px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 40%,var(--dsw-alias-border-l1));color:var(--dsw-alias-label-secondary)}
+.qm-md hr{border:0;border-top:1px solid var(--dsw-alias-border-l1);margin:12px 0}
+.qm-md a.qm-md-link{color:var(--dsw-alias-brand-primary);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.qm-md code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+.qm-md .qm-md-inline-code{padding:1px 4px;border-radius:4px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent);overflow-wrap:anywhere}
+.qm-md .qm-md-pre{margin:8px 0;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:9px;background:var(--dsw-alias-bg-base);overflow-x:auto;white-space:pre;font-size:12.5px;line-height:1.6}
+.qm-md .qm-md-pre code{background:transparent;padding:0}
+.qm-md .qm-md-img{display:block;max-width:100%;max-height:480px;margin:8px 0;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);object-fit:contain}
+.qm-md .qm-md-table-wrap{max-width:100%;overflow-x:auto;margin:8px 0;border:1px solid var(--dsw-alias-border-l1);border-radius:9px}
+.qm-md table.qm-md-table{border-collapse:collapse;width:max-content;min-width:100%;white-space:normal;font-size:13px;line-height:1.55}
+.qm-md table.qm-md-table th,.qm-md table.qm-md-table td{border:1px solid var(--dsw-alias-border-l1);padding:6px 9px;text-align:left;vertical-align:top}
+.qm-md table.qm-md-table th{background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent);font-weight:600}
+.qm-md table.qm-md-table tr:nth-child(even) td{background:color-mix(in srgb,var(--dsw-alias-label-primary) 1.5%,transparent)}
+.qm-md .qm-md-task input{margin-right:6px;accent-color:var(--dsw-alias-brand-primary);vertical-align:middle}
+.qm-md del{opacity:.7}
 .qm-inline-tag{display:inline;margin:0;padding:0 1px;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-weight:550;cursor:pointer;border-radius:3px}
 .qm-inline-tag:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
 .qm-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;min-height:22px}
@@ -643,6 +1197,10 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 .qm-edit-text{box-sizing:border-box;width:100%;min-height:70px;max-height:340px;resize:vertical;padding:9px 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1);outline:none;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;line-height:1.65}
 .qm-edit-text:focus{border-color:var(--dsw-alias-brand-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent)}
 .qm-edit-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.qm-edit-left{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
+.qm-edit-right{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-left:auto}
+.qm-edit-actions{display:flex;align-items:center;gap:6px}
+.qm-edit-preview{margin-top:2px;padding:10px 12px;border:1px solid var(--dsw-alias-border-l1);border-radius:9px;background:var(--dsw-alias-bg-base);max-height:420px;overflow-y:auto}
 .qm-edit-error{font-size:11.5px;color:var(--dsw-alias-state-error-primary)}
 .qm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:52px 20px 40px;text-align:center;border:1px dashed var(--dsw-alias-border-l1);border-radius:14px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 1.5%,transparent)}
 .qm-empty-art{margin-bottom:2px}
@@ -724,10 +1282,15 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [syncingNow, setSyncingNow] = useState(false)
       const [notice, setNotice] = useState(null)
+      const [uploading, setUploading] = useState(0)
+      const [previewEdit, setPreviewEdit] = useState(false)
 
       const versionRef = useRef(0)
       const busyRef = useRef(0)
       const composerRef = useRef(null)
+      const editRef = useRef(null)
+      const draftRef = useRef('')
+      const editTextRef = useRef('')
       const toastTimer = useRef(null)
       const confirmTimer = useRef(null)
 
@@ -736,6 +1299,14 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         setNotice({ text, kind })
         toastTimer.current = setTimeout(() => setNotice(null), kind === 'error' ? 5200 : 2600)
       }, [])
+
+      useEffect(() => {
+        draftRef.current = draft
+      }, [draft])
+
+      useEffect(() => {
+        editTextRef.current = editText
+      }, [editText])
 
       useEffect(
         () => () => {
@@ -856,6 +1427,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           const data = await callApi('create', { text })
           applyState(data)
           setDraft('')
+          draftRef.current = ''
           toast(tr('toast.saved'))
         } catch (error) {
           toast(error.message || tr('toast.error'), 'error')
@@ -868,14 +1440,18 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       function startEdit(note) {
         setEditingId(note.id)
         setEditText(note.text)
+        editTextRef.current = note.text
         setEditError('')
+        setPreviewEdit(false)
         setConfirmId(null)
       }
 
       function cancelEdit() {
         setEditingId(null)
         setEditText('')
+        editTextRef.current = ''
         setEditError('')
+        setPreviewEdit(false)
       }
 
       async function saveEdit() {
@@ -941,6 +1517,101 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         setActiveTag((current) => (current === tag ? '' : tag))
       }
 
+      function insertDraft(snippet, block = true) {
+        const next = insertAtSelection(composerRef, draftRef.current, setDraft, snippet, block)
+        draftRef.current = next
+      }
+
+      function insertEdit(snippet, block = true) {
+        const next = insertAtSelection(editRef, editTextRef.current, setEditText, snippet, block)
+        editTextRef.current = next
+      }
+
+      function handleImagePaste(event, target) {
+        const items = event.clipboardData && event.clipboardData.items
+        if (!items) return
+        const files = []
+        for (const item of items) {
+          if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+            const file = item.getAsFile()
+            if (file) files.push(file)
+          }
+        }
+        if (files.length === 0) return
+        event.preventDefault()
+        void addImages(files, target)
+      }
+
+      function handleImageDrop(event, target) {
+        const transfer = event.dataTransfer
+        if (!transfer || !transfer.files || transfer.files.length === 0) return
+        const files = Array.from(transfer.files).filter(
+          (file) => file.type && file.type.startsWith('image/'),
+        )
+        if (files.length === 0) return
+        event.preventDefault()
+        void addImages(files, target)
+      }
+
+      function handleImageDragOver(event) {
+        if (event.dataTransfer && Array.from(event.dataTransfer.types || []).includes('Files')) {
+          event.preventDefault()
+        }
+      }
+
+      async function addImages(files, target) {
+        const list = Array.from(files || [])
+          .filter((file) => file && file.type && file.type.startsWith('image/'))
+          .slice(0, 6)
+        if (list.length === 0) return
+        setUploading((count) => count + 1)
+        try {
+          const snippets = []
+          for (const file of list) {
+            const prepared = await prepareImage(file)
+            const dataUrl = await readAsDataUrl(prepared)
+            const comma = dataUrl.indexOf(',')
+            const data = comma >= 0 ? dataUrl.slice(comma + 1) : ''
+            if (!data) throw new Error(tr('image.failed'))
+            const result = await callApi('uploadImage', {
+              data,
+              mime: prepared.type || 'image/webp',
+              name: file.name || 'image',
+            })
+            if (result && result.id) {
+              snippets.push('![' + tr('image.alt') + '](dsh-image:' + result.id + ')')
+            }
+          }
+          if (snippets.length === 0) throw new Error(tr('image.failed'))
+          const snippet = snippets.join('\n')
+          if (target === 'edit') insertEdit(snippet)
+          else insertDraft(snippet)
+          toast(tr('image.added'))
+        } catch (error) {
+          toast(error && error.message ? error.message : tr('image.failed'), 'error')
+        } finally {
+          setUploading((count) => Math.max(0, count - 1))
+        }
+      }
+
+      function applyFormat(target, kind) {
+        const element = target === 'edit' ? editRef.current : composerRef.current
+        const current = target === 'edit' ? editTextRef.current : draftRef.current
+        const start =
+          element && typeof element.selectionStart === 'number' ? element.selectionStart : current.length
+        const end = element && typeof element.selectionEnd === 'number' ? element.selectionEnd : current.length
+        const selected = current.slice(start, end)
+        if (kind === 'bold') {
+          const inner = selected || tr('md.boldText')
+          if (target === 'edit') insertEdit('**' + inner + '**', false)
+          else insertDraft('**' + inner + '**', false)
+        } else if (kind === 'code') {
+          const inner = selected || 'code'
+          if (target === 'edit') insertEdit('`' + inner + '`', false)
+          else insertDraft('`' + inner + '`', false)
+        }
+      }
+
       function card(note) {
         const editing = editingId === note.id
         const confirming = confirmId === note.id
@@ -954,14 +1625,20 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
               'div',
               { className: 'qm-edit' },
               h('textarea', {
+                ref: editRef,
                 className: 'qm-edit-text',
                 value: editText,
                 rows: rowsFor(editText, 12),
                 autoFocus: true,
                 spellCheck: false,
                 'aria-label': tr('note.edit'),
+                onPaste: (event) => handleImagePaste(event, 'edit'),
+                onDrop: (event) => handleImageDrop(event, 'edit'),
+                onDragOver: handleImageDragOver,
                 onChange: (event) => {
-                  setEditText(event.target.value)
+                  const value = event.target.value
+                  editTextRef.current = value
+                  setEditText(value)
                   if (editError) setEditError('')
                 },
                 onKeyDown: (event) => {
@@ -974,22 +1651,88 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                   }
                 },
               }),
+              previewEdit
+                ? h(
+                    'div',
+                    { className: 'qm-edit-preview' },
+                    h(MarkdownNote, { text: editText, alt: tr('image.alt') }),
+                  )
+                : null,
               h(
                 'div',
                 { className: 'qm-edit-bar' },
-                h('span', { className: editError ? 'qm-edit-error' : 'qm-hint' }, editError || tr('note.editHint')),
                 h(
                   'div',
-                  { style: { display: 'flex', gap: '6px' } },
+                  { className: 'qm-edit-left' },
+                  h(ImageButton, {
+                    onFiles: (files) => void addImages(files, 'edit'),
+                    disabled: saving || uploading > 0,
+                    title: tr('image.insert'),
+                  }),
                   h(
                     'button',
-                    { type: 'button', className: 'qm-btn qm-btn--ghost', onClick: cancelEdit, disabled: saving },
-                    tr('note.cancel'),
+                    {
+                      type: 'button',
+                      className: 'qm-tool qm-tool--text',
+                      title: tr('md.bold'),
+                      'aria-label': tr('md.bold'),
+                      onClick: () => applyFormat('edit', 'bold'),
+                      disabled: saving,
+                    },
+                    'B',
                   ),
                   h(
                     'button',
-                    { type: 'button', className: 'qm-btn qm-btn--primary', onClick: () => void saveEdit(), disabled: saving || !editText.trim() },
-                    saving ? tr('status.syncing') : tr('note.save'),
+                    {
+                      type: 'button',
+                      className: 'qm-tool qm-tool--text',
+                      title: tr('md.code'),
+                      'aria-label': tr('md.code'),
+                      onClick: () => applyFormat('edit', 'code'),
+                      disabled: saving,
+                    },
+                    h('code', { className: 'qm-tool-code' }, '</>'),
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tool qm-tool--pill',
+                      title: previewEdit ? tr('md.edit') : tr('md.preview'),
+                      'aria-pressed': previewEdit,
+                      onClick: () => setPreviewEdit((value) => !value),
+                      disabled: saving,
+                    },
+                    previewEdit ? tr('md.edit') : tr('md.preview'),
+                  ),
+                  uploading > 0 ? h('span', { className: 'qm-hint' }, tr('image.uploading')) : null,
+                ),
+                h(
+                  'div',
+                  { className: 'qm-edit-right' },
+                  h(
+                    'span',
+                    { className: editError ? 'qm-edit-error' : 'qm-hint' },
+                    editError || tr('note.editHint'),
+                  ),
+                  h(
+                    'div',
+                    { className: 'qm-edit-actions' },
+                    h(
+                      'button',
+                      { type: 'button', className: 'qm-btn qm-btn--ghost', onClick: cancelEdit, disabled: saving },
+                      tr('note.cancel'),
+                    ),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        className: 'qm-btn qm-btn--primary',
+                        onClick: () => void saveEdit(),
+                        disabled: saving || uploading > 0 || !editText.trim(),
+                      },
+                      saving ? tr('status.syncing') : tr('note.save'),
+                    ),
                   ),
                 ),
               ),
@@ -999,7 +1742,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         return h(
           'article',
           { key: note.id, className: 'qm-card' },
-          h('div', { className: 'qm-text' }, renderText(note.text, tagClick)),
+          h(MarkdownNote, { text: note.text, onTag: tagClick, alt: tr('image.alt') }),
           h(
             'footer',
             { className: 'qm-card-foot' },
@@ -1163,7 +1906,14 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
               spellCheck: false,
               placeholder: tr('composer.placeholder'),
               'aria-label': tr('composer.placeholder'),
-              onChange: (event) => setDraft(event.target.value),
+              onPaste: (event) => handleImagePaste(event, 'draft'),
+              onDrop: (event) => handleImageDrop(event, 'draft'),
+              onDragOver: handleImageDragOver,
+              onChange: (event) => {
+                const value = event.target.value
+                draftRef.current = value
+                setDraft(value)
+              },
               onKeyDown: (event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
                   event.preventDefault()
@@ -1174,14 +1924,55 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
             h(
               'div',
               { className: 'qm-composer-bar' },
-              h('span', { className: 'qm-hint' }, tr('composer.hint')),
+              h(
+                'div',
+                { className: 'qm-composer-left' },
+                h(
+                  'div',
+                  { className: 'qm-tools' },
+                  h(ImageButton, {
+                    onFiles: (files) => void addImages(files, 'draft'),
+                    disabled: creating || uploading > 0,
+                    title: tr('image.insert'),
+                  }),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tool qm-tool--text',
+                      title: tr('md.bold'),
+                      'aria-label': tr('md.bold'),
+                      onClick: () => applyFormat('draft', 'bold'),
+                      disabled: creating,
+                    },
+                    'B',
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tool qm-tool--text',
+                      title: tr('md.code'),
+                      'aria-label': tr('md.code'),
+                      onClick: () => applyFormat('draft', 'code'),
+                      disabled: creating,
+                    },
+                    h('code', { className: 'qm-tool-code' }, '</>'),
+                  ),
+                ),
+                h(
+                  'span',
+                  { className: 'qm-hint' },
+                  uploading > 0 ? tr('image.uploading') : tr('composer.hint'),
+                ),
+              ),
               h(
                 'button',
                 {
                   type: 'button',
                   className: 'qm-btn qm-btn--primary',
                   onClick: () => void submitDraft(),
-                  disabled: creating || !draft.trim(),
+                  disabled: creating || uploading > 0 || !draft.trim(),
                 },
                 PlusIcon(),
                 creating ? tr('status.syncing') : tr('composer.submit'),

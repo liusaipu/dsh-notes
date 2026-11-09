@@ -1,6 +1,6 @@
 # 随手记 · Quick Memo
 
-一个 flomo 风格的 DSH Desktop 插件：左侧栏入口、随手记录、标签、搜索，并可通过**自己的邮箱**在多台 DSH Desktop 之间同步。
+一个 flomo 风格的 DSH Desktop 插件：左侧栏入口、随手记录、标签、搜索、**Markdown 渲染**和**图片插入**，并可通过**自己的邮箱**在多台 DSH Desktop 之间同步。
 
 ![icon](./icon.svg)
 
@@ -66,7 +66,7 @@ Content-Transfer-Encoding: base64
 
 ```bash
 npm pack
-# 得到 dsh-notes-1.0.0.tgz
+# 得到 dsh-notes-1.1.0.tgz
 ```
 
 把 tarball 用 AirDrop、网盘或 U 盘复制到另一台机器，然后：
@@ -118,11 +118,30 @@ node scripts/make-market-index.mjs \
 
 然后在另一台机器的 Discover 里添加该 JSON 的 URL。生成器会打印对应的安装 spec；`--path` 用于仓库子目录，`--npm` 用于已发布到 npm 的版本。索引格式说明见 [dsh-plugin-market-index](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/util/plugin-market-index)。
 
+## Markdown 与图片
+
+笔记正文按 Markdown 渲染，支持：
+
+- 标题（`#` 到 `######`）、段落、粗体、斜体、删除线、行内代码
+- 有序/无序列表、任务列表（`- [ ]` / `- [x]`）、引用、代码块、分割线
+- 链接、表格（GFM 风格）、图片
+- `#标签` 仍然可以点击筛选
+
+插入图片有三种方式：
+
+1. **粘贴**：在输入框或编辑框里直接 `⌘/Ctrl + V` 粘贴剪贴板图片；
+2. **选择文件**：点输入框工具栏的图片按钮，可多选；
+3. **拖拽**：把图片拖到输入框或编辑框里。
+
+图片在发送到 Host 前会在浏览器里尽量压缩为 WebP（大图最长边 1600px，目标 < 900KB；小图可能保留原格式），保存到 `$DSH_HOME/storages/flomo/images/`，笔记里使用 `![图片](dsh-image:<id>)` 引用。图片会随笔记修订一起写进邮箱邮件，因此另一台连接同一邮箱后也能看到。
+
+限制：单张图片最大 1.5MB（解码后），单条笔记最多 6 张；不支持 SVG 直接上传（会转成 WebP）。图片会重复出现在每次修订邮件里，编辑带大图的笔记会增加邮箱占用。
+
 ## 存储与安全
 
-- 本地状态文件：`$DSH_HOME/storages/flomo/state.json`，权限 `0600`。
+- 本地状态文件：`$DSH_HOME/storages/flomo/state.json`，权限 `0600`；图片在 `$DSH_HOME/storages/flomo/images/`，同样只在本机落盘。
 - IMAP 密码：写入 DSH 的 Credential 服务（`DSH_FLOMO_IMAP_PASSWORD`），不会返回给页面，也不会写进笔记文件。
-- 笔记正文会进入你的邮箱；请使用可随时撤销的应用专用密码，不要使用主密码。
+- 笔记正文和图片会进入你的邮箱；请使用可随时撤销的应用专用密码，不要使用主密码。
 - 同步是追加式的，每修改一次会产生一封邮件。对个人笔记规模没有问题；邮箱容量和文件夹清理由你控制。
 - **不要手动删除或移动同步文件夹里的邮件**：它们是其他电脑恢复笔记的来源。若要停用同步，请用插件里的「断开连接」，本地笔记会保留。
 

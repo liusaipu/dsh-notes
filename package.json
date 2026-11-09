@@ -1,7 +1,7 @@
 {
   "name": "dsh-notes",
-  "version": "1.0.0",
-  "description": "A flomo-style quick-capture page in the DSH Desktop sidebar, synced across machines through an email folder.",
+  "version": "1.1.0",
+  "description": "A flomo-style quick-capture page in the DSH Desktop sidebar with Markdown, image attachments, and email-folder sync.",
   "type": "module",
   "license": "MIT",
   "keywords": [

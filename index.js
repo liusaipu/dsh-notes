@@ -9,10 +9,12 @@
 import os from 'node:os'
 import path from 'node:path'
 import { MemoError, MemoStore } from './lib/store.js'
+import { ImageError, ImageStore } from './lib/images.js'
 import { SyncEngine, SyncError, friendlyError } from './lib/sync.js'
 
 const ROUTE_PATH = '/flomo/api'
-const MAX_BODY_BYTES = 512 * 1024
+const IMAGE_ROUTE_PATH = '/flomo/api/image'
+const MAX_BODY_BYTES = 12 * 1024 * 1024
 
 export const inject = ['webServer', 'credentials']
 
@@ -22,8 +24,12 @@ export function apply(ctx) {
     file: path.join(root, 'storages', 'flomo', 'state.json'),
     legacyFile: path.join(root, 'storages', 'notes-wall.json'),
   })
+  const images = new ImageStore({
+    dir: path.join(root, 'storages', 'flomo', 'images'),
+  })
   const engine = new SyncEngine({
     store,
+    images,
     credentials: ctx.credentials,
     log: (message) => {
       try {
@@ -65,6 +71,13 @@ export function apply(ctx) {
       const action = body && typeof body.action === 'string' ? body.action : ''
       await ready
 
+      if (action === 'uploadImage') {
+        const saved = await images.saveFromBase64({
+          mime: body.mime,
+          data: body.data,
+        })
+        return sendJson(res, 200, { ok: true, ...saved })
+      }
       if (action === 'create') {
         await store.addNote(body.text)
         engine.schedule()
@@ -99,7 +112,7 @@ export function apply(ctx) {
       return sendJson(res, 400, { ok: false, error: 'unknown action' })
     } catch (error) {
       const code = error && error.code ? String(error.code) : 'ERROR'
-      const status = error instanceof MemoError || error instanceof SyncError ? 400 : 500
+      const status = error instanceof MemoError || error instanceof SyncError || error instanceof ImageError ? 400 : 500
       return sendJson(res, status, {
         ok: false,
         code,
@@ -108,9 +121,35 @@ export function apply(ctx) {
     }
   }
 
+  async function handleImage(req, res) {
+    try {
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        res.setHeader('allow', 'GET, HEAD')
+        return endText(res, 405, 'method not allowed')
+      }
+      const pathname = new URL(req.url || '/', 'http://localhost').pathname
+      const id = decodeURIComponent(pathname.slice(IMAGE_ROUTE_PATH.length + 1))
+      const found = await images.read(id)
+      if (!found) return endText(res, 404, 'image not found', { 'cache-control': 'no-store' })
+      res.writeHead(200, {
+        'content-type': found.mime,
+        'content-length': found.buffer.length,
+        'cache-control': 'private, max-age=31536000, immutable',
+        'x-content-type-options': 'nosniff',
+      })
+      res.end(req.method === 'HEAD' ? undefined : found.buffer)
+    } catch (error) {
+      return endText(res, 404, 'image not found', { 'cache-control': 'no-store' })
+    }
+  }
+
   ctx.effect(
     () => ctx.webServer.register({ kind: 'exact', path: ROUTE_PATH, handler: handle }),
     'flomo-notes:api',
+  )
+  ctx.effect(
+    () => ctx.webServer.register({ kind: 'prefix', path: IMAGE_ROUTE_PATH, handler: handleImage }),
+    'flomo-notes:image',
   )
   ctx.effect(() => () => engine.stop(), 'flomo-notes:sync')
 }
@@ -171,4 +210,13 @@ function sendJson(res, status, value) {
     'x-content-type-options': 'nosniff',
   })
   res.end(body)
+}
+
+function endText(res, status, text, headers = {}) {
+  res.writeHead(status, {
+    'content-type': 'text/plain; charset=utf-8',
+    'x-content-type-options': 'nosniff',
+    ...headers,
+  })
+  res.end(text)
 }
