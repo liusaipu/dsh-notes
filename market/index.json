@@ -32,11 +32,11 @@
       "versions": [
         {
           "version": "1.1.0",
-          "publishTimestamp": 1794229123,
+          "publishTimestamp": 1794229356,
           "source": {
             "type": "git",
             "url": "https://github.com/liusaipu/dsh-notes",
-            "commit": "e5d7ed93849616f977a7cd2f2e9b4bc6f5624545"
+            "commit": "cdb0bf1d74bbeaf231759c3068d5eae73e167656"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.5"
