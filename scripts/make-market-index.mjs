@@ -9,12 +9,12 @@
  *
  * Examples
  *   node scripts/make-market-index.mjs \
- *     --repo https://github.com/you/flomo-notes \
+ *     --repo https://github.com/you/dsh-notes \
  *     --commit "$(git rev-parse HEAD)"
  *
  *   node scripts/make-market-index.mjs \
- *     --repo https://github.com/you/flomo-notes \
- *     --commit <sha> --path flomo-notes
+ *     --repo https://github.com/you/dsh-notes \
+ *     --commit <sha> --path dsh-notes
  *
  *   node scripts/make-market-index.mjs --npm --version 1.0.0
  */

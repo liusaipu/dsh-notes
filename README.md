@@ -58,6 +58,14 @@ Content-Transfer-Encoding: base64
 高级设置里可以修改 IMAP 服务器、端口和同步文件夹名。服务器地址留空时会按邮箱域名自动识别。
 
 
+## 桌面版（实验）
+
+`desktop/` 是 Quick Memo 桌面版的第一个技术验证（Tauri 2 + Rust），当前只跑通 IMAP 登录、创建测试文件夹、写入一封带图片的笔记、读回并解析，还没有完整笔记界面和本地存储。
+
+- 构建：`cd desktop && npm install && PATH="$HOME/.cargo/bin:$PATH" npm run tauri build`
+- 产物：`desktop/src-tauri/target/release/bundle/`（macOS `.app` / `.dmg`）
+- 说明见 [desktop/README.md](desktop/README.md)
+
 ## 关于
 
 标题栏的 **i** 图标会打开「关于」：显示插件名称、包名、版本、开发者、更新日期、许可证，以及 GitHub 仓库和发布记录链接。版本与更新日期来自 `package.json`，不需要在界面里手动维护。
@@ -95,10 +103,10 @@ npm pack
 把本目录推到一个 Git 仓库（仓库名 `dsh-notes`）：
 
 ```bash
-cd flomo-notes
+cd dsh-notes
 git init -b main
 git add .
-git commit -m "flomo-notes 1.0.0"
+git commit -m "dsh-notes 1.1.0"
 git remote add origin https://github.com/liusaipu/dsh-notes.git
 git push -u origin main
 ```
@@ -109,7 +117,7 @@ git push -u origin main
 git+https://github.com/liusaipu/dsh-notes.git#<40 位 commit SHA>
 ```
 
-如果插件在仓库子目录（例如仓库根目录下还有别的文件），追加 `&path:/flomo-notes`。commit SHA 可以用 `git rev-parse HEAD` 取得；固定 commit 比 `main` 更可复现。
+如果插件在仓库子目录，追加 `&path:/<子目录>`。commit SHA 可以用 `git rev-parse HEAD` 取得；固定 commit 比 `main` 更可复现。
 
 ### 3. 进入公开市场
 

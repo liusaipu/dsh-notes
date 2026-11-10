@@ -3,3 +3,11 @@ node_modules/
 *.log
 *.tgz
 .tmp-*
+desktop/node_modules/
+desktop/dist/
+desktop/.vite/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/.tauri/
+desktop/*.dmg
+desktop/*.app
