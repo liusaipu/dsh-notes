@@ -8,6 +8,7 @@
  */
 import os from 'node:os'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { MemoError, MemoStore } from './lib/store.js'
 import { ImageError, ImageStore } from './lib/images.js'
 import { SyncEngine, SyncError, friendlyError } from './lib/sync.js'
@@ -15,6 +16,24 @@ import { SyncEngine, SyncError, friendlyError } from './lib/sync.js'
 const ROUTE_PATH = '/flomo/api'
 const IMAGE_ROUTE_PATH = '/flomo/api/image'
 const MAX_BODY_BYTES = 12 * 1024 * 1024
+
+const requireFromHere = createRequire(import.meta.url)
+let manifest = {}
+try {
+  manifest = requireFromHere('./package.json')
+} catch {
+  /* keep the fallback About values */
+}
+const author = manifest.author
+const ABOUT = {
+  name: manifest.name || 'dsh-notes',
+  version: manifest.version || '0.0.0',
+  developer: typeof author === 'string' ? author : (author && author.name) || 'liusaipu',
+  updatedAt:
+    (manifest.dsh && manifest.dsh.about && manifest.dsh.about.updatedAt) || '2026-11-10',
+  repository: 'https://github.com/liusaipu/dsh-notes',
+  license: manifest.license || 'MIT',
+}
 
 export const inject = ['webServer', 'credentials']
 
@@ -52,11 +71,15 @@ export function apply(ctx) {
       console.error(`[flomo] failed to load local notes: ${error && error.message ? error.message : error}`)
     })
 
+  async function currentState() {
+    return { ok: true, about: ABOUT, ...(await store.snapshot()) }
+  }
+
   async function handle(req, res) {
     try {
       if (!sameOrigin(req, ctx.webServer)) return sendJson(res, 403, { ok: false, error: 'forbidden origin' })
       if (req.method === 'GET') {
-        return sendJson(res, 200, { ok: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, await currentState())
       }
       if (req.method !== 'POST') {
         res.setHeader('allow', 'GET, POST')
@@ -81,33 +104,34 @@ export function apply(ctx) {
       if (action === 'create') {
         await store.addNote(body.text)
         engine.schedule()
-        return sendJson(res, 200, { ok: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, await currentState())
       }
       if (action === 'update') {
         await store.updateNote(String(body.id || ''), body.text)
         engine.schedule()
-        return sendJson(res, 200, { ok: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, await currentState())
       }
       if (action === 'delete') {
         await store.deleteNote(String(body.id || ''))
         engine.schedule()
-        return sendJson(res, 200, { ok: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, await currentState())
       }
       if (action === 'account') {
         const account = await engine.verifyAccount(body)
         return sendJson(res, 200, {
           ok: true,
+          about: ABOUT,
           account,
           ...(await store.snapshot()),
         })
       }
       if (action === 'disconnect') {
         await engine.disconnect()
-        return sendJson(res, 200, { ok: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, await currentState())
       }
       if (action === 'sync') {
         void engine.run('manual')
-        return sendJson(res, 200, { ok: true, started: true, ...(await store.snapshot()) })
+        return sendJson(res, 200, { ok: true, about: ABOUT, started: true, ...(await store.snapshot()) })
       }
       return sendJson(res, 400, { ok: false, error: 'unknown action' })
     } catch (error) {

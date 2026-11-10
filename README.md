@@ -58,6 +58,10 @@ Content-Transfer-Encoding: base64
 高级设置里可以修改 IMAP 服务器、端口和同步文件夹名。服务器地址留空时会按邮箱域名自动识别。
 
 
+## 关于
+
+标题栏的 **i** 图标会打开「关于」：显示插件名称、包名、版本、开发者、更新日期、许可证，以及 GitHub 仓库和发布记录链接。版本与更新日期来自 `package.json`，不需要在界面里手动维护。
+
 ## 安装到另一台 DSH Desktop
 
 这台机器上的安装是 profile 里的本地链接，不会自动出现在另一台机器。可以选下面任一种方式（要求 DSH Desktop ≥ 0.2.1-rc.5，对应 `package.json` 的 `engines.dsh`）：

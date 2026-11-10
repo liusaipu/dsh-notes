@@ -43,6 +43,9 @@
         "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-layout"
       ]
+    },
+    "about": {
+      "updatedAt": "2026-11-10"
     }
   },
   "author": "liusaipu",

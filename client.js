@@ -8,6 +8,14 @@ window.__ModuleLoader__.load({
     const API = '/flomo/api'
     const CACHE_KEY = 'dsh.flomo-notes.cache.v1'
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
+    const FALLBACK_ABOUT = {
+      name: 'dsh-notes',
+      version: '1.1.0',
+      developer: 'liusaipu',
+      updatedAt: '2026-11-10',
+      repository: 'https://github.com/liusaipu/dsh-notes',
+      license: 'MIT',
+    }
 
     const EN = {
       label: 'Quick Memo',
@@ -81,6 +89,16 @@ window.__ModuleLoader__.load({
       'account.outlook':
         'Outlook / Microsoft 365 currently blocks password-based IMAP. Gmail, iCloud, QQ and 163 work with app passwords.',
       'account.success': 'Mailbox connected. Importing existing notes…',
+      'about.title': 'About',
+      'about.description': 'A flomo-style inbox with Markdown, images, and sync through your own mailbox.',
+      'about.version': 'Version',
+      'about.developer': 'Developer',
+      'about.updated': 'Updated',
+      'about.license': 'License',
+      'about.repository': 'GitHub repository',
+      'about.releases': 'Releases',
+      'about.note': 'Notes stay on this computer and sync through your own mailbox. No third-party server is involved.',
+      'about.close': 'Close',
       'note.edit': 'Edit note',
       'note.delete': 'Delete note',
       'note.confirm': 'Confirm delete',
@@ -173,6 +191,16 @@ window.__ModuleLoader__.load({
       'account.outlook':
         'Outlook / Microsoft 365 目前限制密码方式登录 IMAP，暂不支持；Gmail、iCloud、QQ、163 可使用应用专用密码。',
       'account.success': '邮箱已连接，正在导入已有笔记…',
+      'about.title': '关于',
+      'about.description': '像 flomo 一样随手记录，支持 Markdown、图片，并通过你自己的邮箱在多台 DSH Desktop 之间同步。',
+      'about.version': '版本',
+      'about.developer': '开发者',
+      'about.updated': '更新日期',
+      'about.license': '许可证',
+      'about.repository': 'GitHub 仓库',
+      'about.releases': '发布记录',
+      'about.note': '笔记保存在本机，并通过你自己的邮箱同步；不经过第三方服务器。',
+      'about.close': '关闭',
       'note.edit': '编辑笔记',
       'note.delete': '删除笔记',
       'note.confirm': '确认删除',
@@ -253,6 +281,7 @@ window.__ModuleLoader__.load({
           notes: parsed.notes,
           account: parsed.account || null,
           sync: parsed.sync || null,
+          about: parsed.about || null,
           version: Number(parsed.version) || 0,
         }
       } catch {
@@ -969,6 +998,26 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function InfoIcon() {
+      return h(
+        'svg',
+        {
+          width: 17,
+          height: 17,
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.8,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': true,
+        },
+        h('circle', { cx: 12, cy: 12, r: 8.6 }),
+        h('path', { d: 'M12 10.8v5.4' }),
+        h('path', { d: 'M12 7.6h.01' }),
+      )
+    }
+
     function RefreshIcon() {
       return h(
         'svg',
@@ -1243,6 +1292,18 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 .qm-account-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .qm-divider{height:1px;background:var(--dsw-alias-border-l1);margin:4px 0}
 .qm-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.qm-about{width:min(440px,100%)}
+.qm-about-brand{display:flex;align-items:center;gap:12px;margin:16px 0 14px}
+.qm-about-mark{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;flex:none;border-radius:12px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,transparent);color:var(--dsw-alias-brand-primary);border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 18%,transparent)}
+.qm-about-id{min-width:0}
+.qm-about-name{font-size:15px;font-weight:650;line-height:1.35}
+.qm-about-package{margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
+.qm-about-kv{font-size:12.5px;gap:6px 16px;margin:0}
+.qm-about-kv dt{white-space:nowrap}
+.qm-about-links{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+.qm-about-link{font-size:12px;color:var(--dsw-alias-brand-primary);text-decoration:underline;text-underline-offset:2px}
+.qm-about-link:hover{color:color-mix(in srgb,var(--dsw-alias-brand-primary) 80%,var(--dsw-alias-label-primary))}
+.qm-about-note{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l1)}
 @media (max-width:720px){
   .qm-page{padding:20px 16px 60px}
   .qm-title{font-size:20px}
@@ -1280,12 +1341,17 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const [confirmId, setConfirmId] = useState(null)
       const [deletingId, setDeletingId] = useState(null)
       const [settingsOpen, setSettingsOpen] = useState(false)
+      const [aboutOpen, setAboutOpen] = useState(false)
+      const [about, setAbout] = useState(
+        initial && initial.about ? { ...FALLBACK_ABOUT, ...initial.about } : FALLBACK_ABOUT,
+      )
       const [syncingNow, setSyncingNow] = useState(false)
       const [notice, setNotice] = useState(null)
       const [uploading, setUploading] = useState(0)
       const [previewEdit, setPreviewEdit] = useState(false)
 
       const versionRef = useRef(0)
+      const aboutRef = useRef(about)
       const busyRef = useRef(0)
       const composerRef = useRef(null)
       const editRef = useRef(null)
@@ -1329,12 +1395,21 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           lastError: (data.sync && data.sync.lastError) || null,
           pending: Number(data.pending) || 0,
         }
+        const nextAbout = data.about ? { ...FALLBACK_ABOUT, ...data.about } : aboutRef.current
+        aboutRef.current = nextAbout
+        setAbout(nextAbout)
         setNotes(serverNotes)
         setAccount(nextAccount)
         setSync(nextSync)
         setOffline(false)
         setPhase('ready')
-        writeCache({ notes: serverNotes, account: nextAccount, sync: nextSync, version: data.version })
+        writeCache({
+          notes: serverNotes,
+          account: nextAccount,
+          sync: nextSync,
+          about: nextAbout,
+          version: data.version,
+        })
       }, [])
 
       const refresh = useCallback(async () => {
@@ -1844,6 +1919,17 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 {
                   type: 'button',
                   className: 'qm-icon-btn',
+                  title: tr('about.title'),
+                  'aria-label': tr('about.title'),
+                  onClick: () => setAboutOpen(true),
+                },
+                InfoIcon(),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'qm-icon-btn',
                   title: tr('settings.title'),
                   'aria-label': tr('settings.title'),
                   onClick: () => setSettingsOpen(true),
@@ -2100,6 +2186,11 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           onClose: () => setSettingsOpen(false),
           onState: applyState,
           toast,
+        }),
+        h(AboutDialog, {
+          open: aboutOpen,
+          about,
+          onClose: () => setAboutOpen(false),
         }),
       )
     }
@@ -2481,6 +2572,156 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 h('p', { className: 'qm-help' }, tr('account.security')),
                 h('p', { className: 'qm-help' }, tr('account.outlook')),
               ),
+        ),
+      )
+    }
+
+    /* ---------- about ---------- */
+
+    function AboutDialog({ open, about, onClose }) {
+      const tr = useTranslate()
+      const dialogRef = useRef(null)
+      const closeRef = useRef(null)
+      const previousFocus = useRef(null)
+
+      useEffect(() => {
+        if (!open) return undefined
+        previousFocus.current = document.activeElement
+        const bodyOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        const timer = setTimeout(() => {
+          if (closeRef.current) closeRef.current.focus()
+        }, 0)
+        const onKey = (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            onClose()
+          }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => {
+          clearTimeout(timer)
+          document.body.style.overflow = bodyOverflow
+          document.removeEventListener('keydown', onKey)
+          if (previousFocus.current && previousFocus.current.focus) {
+            try {
+              previousFocus.current.focus()
+            } catch {
+              /* the trigger may be gone */
+            }
+          }
+        }
+      }, [open])
+
+      function trapTab(event) {
+        if (event.key !== 'Tab' || !dialogRef.current) return
+        const items = Array.from(
+          dialogRef.current.querySelectorAll('button:not([disabled]), a[href]'),
+        ).filter((item) => item.offsetParent !== null)
+        if (items.length === 0) return
+        const first = items[0]
+        const last = items[items.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+
+      if (!open) return null
+
+      const repository = about.repository || FALLBACK_ABOUT.repository
+      const releases = repository.replace(/\/+$/, '') + '/releases'
+      return h(
+        'div',
+        {
+          className: 'qm-modal',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget) onClose()
+          },
+        },
+        h(
+          'div',
+          {
+            className: 'qm-dialog qm-about',
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-labelledby': 'qm-about-title',
+            ref: dialogRef,
+            onKeyDown: trapTab,
+          },
+          h(
+            'div',
+            { className: 'qm-dialog-head' },
+            h(
+              'div',
+              null,
+              h('h2', { className: 'qm-dialog-title', id: 'qm-about-title' }, tr('about.title')),
+              h('p', { className: 'qm-dialog-sub' }, tr('about.description')),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'qm-icon-btn qm-dialog-close',
+                title: tr('about.close'),
+                'aria-label': tr('about.close'),
+                onClick: onClose,
+                ref: closeRef,
+              },
+              CloseIcon(),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'qm-about-brand' },
+            h('span', { className: 'qm-about-mark' }, h(MemoIcon, { size: 28 })),
+            h(
+              'div',
+              { className: 'qm-about-id' },
+              h('div', { className: 'qm-about-name' }, tr('title')),
+              h('div', { className: 'qm-about-package' }, about.name || FALLBACK_ABOUT.name),
+            ),
+          ),
+          h(
+            'dl',
+            { className: 'qm-kv qm-about-kv' },
+            h('dt', null, tr('about.version')),
+            h('dd', null, 'v' + (about.version || FALLBACK_ABOUT.version)),
+            h('dt', null, tr('about.developer')),
+            h('dd', null, about.developer || FALLBACK_ABOUT.developer),
+            h('dt', null, tr('about.updated')),
+            h('dd', null, about.updatedAt || FALLBACK_ABOUT.updatedAt),
+            h('dt', null, tr('about.license')),
+            h('dd', null, about.license || FALLBACK_ABOUT.license),
+          ),
+          h(
+            'div',
+            { className: 'qm-about-links' },
+            h(
+              'a',
+              {
+                className: 'qm-about-link',
+                href: repository,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+              },
+              tr('about.repository'),
+            ),
+            h(
+              'a',
+              {
+                className: 'qm-about-link',
+                href: releases,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+              },
+              tr('about.releases'),
+            ),
+          ),
+          h('p', { className: 'qm-help qm-about-note' }, tr('about.note')),
         ),
       )
     }
