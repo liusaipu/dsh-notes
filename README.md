@@ -166,6 +166,8 @@ DSH 本身没有内置的官方市场；“发现（Discover）”读取的是�
 3. 要让本插件进入这个索引：把上面的 Git 仓库公开，给仓库加上 GitHub topic `dsh-plugin`，然后到 [dsh.so 提交插件](https://www.dsh.so/zh/submit/) 粘贴仓库地址。它会自动拉取源码、检查 `dsh` 字段 / README / SPDX license / 安全扫描，生成市场条目并提交审核。审核合并后，另一台机器刷新索引就能看到并安装。
 4. dsh.so 是第三方社区项目，不是 DeepSeek 官方市场；新插件通常先以 **Declared（声明兼容）** 收录，独立测试通过后才会标为 Verified。
 
+> **2026-11-11 检查结果**：dsh.so 索引里已经存在另一个同名 `dsh-notes` 条目（作者 `DynaMyhome`，版本 `0.8.0`），另有 `@dsh-external/dsh-notes`、`dsh-notes-markdown` 等相似名称；本插件 `liusaipu/dsh-notes` 目前没有被收录。直接提交 `dsh-notes` 会发生名称冲突，需要先用唯一的包名（例如 `dsh-quick-memo` / `dsh-flomo-notes`）重新提交，或只使用上面的 GitHub Release / 自建索引。
+
 > 当前通过 Git / dsh.so 安装，不需要 npm。`dsh-notes` 这个名字在 npm 上已被他人占用；如果以后要发布到 **npm**，请改成 `dsh-flomo-notes` 这类你拥有的名字，并同步修改 `package.json`、`client.js` 的模块 id 和 `cordis.patch.yml` 的行名。自建索引脚本的 `--npm` 模式会拒绝 `dsh-notes`，避免生成指向别人包的条目。
 
 ### 4. 自建一个市场索引（完全可控）
