@@ -1,6 +1,6 @@
 # 随手记 · Quick Memo
 
-一个 flomo 风格的 DSH Desktop 插件：左侧栏入口、随手记录、标签、搜索、**Markdown 渲染**和**图片插入**，并可通过**自己的邮箱**在多台 DSH Desktop 之间同步。
+一个 flomo 风格的 DSH Desktop 插件：左侧栏入口、随手记录、标签、搜索、**Markdown 渲染**和**图片插入**，支持**多笔记本**，并可通过**自己的邮箱**在多台 DSH Desktop 之间同步。
 
 ![icon](./icon.svg)
 
@@ -10,7 +10,7 @@
 
 不依赖任何中转服务器，也不需要 DSH 账号提供云存储：
 
-1. 每台电脑先写入本地 `$DSH_HOME/storages/flomo/state.json`，离线也能记。
+1. 每台电脑先写入本地 `$DSH_HOME/storages/flomo/notebooks/<笔记本 id>/state.json`，离线也能记。
 2. 每条笔记的每个修订版本被追加成一封小邮件，放进邮箱里的专用文件夹（默认 `DSH Notes`）。
 3. 另一台电脑用**同一个邮箱**连接后，按 UID 增量读取该文件夹，把邮件里的修订合并进本地。
 4. 合并规则是 `(updatedAt, deviceId)` 的 last-write-wins，删除用墓碑标记；两端最终收敛到同一份记录。
@@ -44,6 +44,43 @@ Content-Transfer-Encoding: base64
 
 因此任意一封邮件都能独立解读，不依赖同一线程的其他邮件；同步失败或重装后重新扫描文件夹即可恢复。
 
+## 多笔记本
+
+顶部的 tab 栏可以在多个笔记本之间切换。每个笔记本有独立的：
+
+- 显示名称（可随时重命名，名字只保存在本机，不同步到其他设备）；
+- 本地 `state.json` 和 `images/` 目录；
+- 邮箱账号、同步文件夹和 UID 游标；
+- 搜索、标签筛选和草稿。
+
+**一个邮箱只能绑定一个笔记本**。连接邮箱时，Host 会按邮箱地址（不区分大小写）检查其他笔记本；如果已被占用，会返回 `MAILBOX_CONFLICT`，并提示占用它的笔记本名称。即使两个笔记本使用同一个邮箱的不同文件夹，也会被拒绝，避免串数据。
+
+常用操作：
+
+- `+` 新建笔记本，默认名类似「笔记本 2」；
+- 双击当前 tab 重命名；
+- tab 右侧的 `⋯` 可以重命名、连接邮箱或删除；
+- 删除只清理本机目录和凭据，邮箱里的同步邮件不会删除；如果另一台设备还连着同一个邮箱，笔记可能会再次同步回来；
+- 至少保留一个笔记本，最多 20 个。
+
+数据布局：
+
+```text
+$DSH_HOME/storages/flomo/
+├── notebooks.json
+└── notebooks/
+    ├── default/          # 旧版单笔记本迁移后固定使用 default
+    │   ├── state.json
+    │   └── images/
+    └── 7f3ac1d9/
+        ├── state.json
+        └── images/
+```
+
+旧版只有一份 `state.json` 的情况下，首次加载会自动迁移到 `notebooks/default/`，名称默认为「我的笔记」，并沿用原来的密码凭据引用，**不需要重新输入应用专用密码**。迁移先复制、最后原子提交 `notebooks.json`，失败时旧数据保持原样。
+
+图片路径现在是 `/flomo/api/image/<笔记本 id>/<图片 id>`；旧的无笔记本路径仍会回退到当前笔记本，兼容旧缓存。
+
 ## 使用
 
 1. 打开左侧栏的「随手记」。
@@ -72,6 +109,9 @@ Content-Transfer-Encoding: base64
 
 ## 安装到另一台 DSH Desktop
 
+> 当前源码版本为 **1.2.0**，包含多笔记本；下面的 Release 资源仍是 **1.1.0**，尚未包含多笔记本。需要从 Release 安装多笔记本版本时，需要先发布 1.2.0。
+
+
 这台机器上的安装是 profile 里的本地链接，不会自动出现在另一台机器。可以选下面任一种方式（要求 DSH Desktop ≥ 0.2.1-rc.5，对应 `package.json` 的 `engines.dsh`）：
 
 ### 0. 从 GitHub Release 安装（推荐给其他人）
@@ -91,7 +131,7 @@ https://github.com/liusaipu/dsh-notes/releases/download/v1.1.0/dsh-notes-1.1.0.t
 
 ```bash
 npm pack
-# 得到 dsh-notes-1.1.0.tgz
+# 得到 dsh-notes-1.2.0.tgz
 ```
 
 把 tarball 用 AirDrop、网盘或 U 盘复制到另一台机器，然后：
@@ -106,7 +146,7 @@ npm pack
 cd dsh-notes
 git init -b main
 git add .
-git commit -m "dsh-notes 1.1.0"
+git commit -m "dsh-notes 1.2.0"
 git remote add origin https://github.com/liusaipu/dsh-notes.git
 git push -u origin main
 ```
@@ -158,13 +198,13 @@ node scripts/make-market-index.mjs \
 2. **选择文件**：点输入框工具栏的图片按钮，可多选；
 3. **拖拽**：把图片拖到输入框或编辑框里。
 
-图片在发送到 Host 前会在浏览器里尽量压缩为 WebP（大图最长边 1600px，目标 < 900KB；小图可能保留原格式），保存到 `$DSH_HOME/storages/flomo/images/`，笔记里使用 `![图片](dsh-image:<id>)` 引用。图片会随笔记修订一起写进邮箱邮件，因此另一台连接同一邮箱后也能看到。
+图片在发送到 Host 前会在浏览器里尽量压缩为 WebP（大图最长边 1600px，目标 < 900KB；小图可能保留原格式），保存到 `$DSH_HOME/storages/flomo/notebooks/<笔记本 id>/images/`，笔记里使用 `![图片](dsh-image:<id>)` 引用。图片会随笔记修订一起写进邮箱邮件，因此另一台连接同一邮箱后也能看到。
 
 限制：单张图片最大 1.5MB（解码后），单条笔记最多 6 张；不支持 SVG 直接上传（会转成 WebP）。图片会重复出现在每次修订邮件里，编辑带大图的笔记会增加邮箱占用。用 Markdown 直接写远程 `http(s)` 图片时只会由当前设备加载，不会写入邮箱；需要跨设备请用「插入图片」上传本地文件。
 
 ## 存储与安全
 
-- 本地状态文件：`$DSH_HOME/storages/flomo/state.json`，权限 `0600`；图片在 `$DSH_HOME/storages/flomo/images/`，同样只在本机落盘。
+- 本地状态文件：`$DSH_HOME/storages/flomo/notebooks/<笔记本 id>/state.json`，权限 `0600`；图片在对应的 `images/` 目录，同样只在本机落盘。
 - IMAP 密码：写入 DSH 的 Credential 服务（`DSH_FLOMO_IMAP_PASSWORD`），不会返回给页面，也不会写进笔记文件。
 - 笔记正文和图片会进入你的邮箱；请使用可随时撤销的应用专用密码，不要使用主密码。
 - 同步是追加式的，每修改一次会产生一封邮件。对个人笔记规模没有问题；邮箱容量和文件夹清理由你控制。

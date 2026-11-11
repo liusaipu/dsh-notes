@@ -1,6 +1,6 @@
 {
   "name": "dsh-notes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A flomo-style quick-capture page in the DSH Desktop sidebar with Markdown, image attachments, and email-folder sync.",
   "type": "module",
   "license": "MIT",
@@ -45,7 +45,7 @@
       ]
     },
     "about": {
-      "updatedAt": "2026-11-10"
+      "updatedAt": "2026-11-11"
     }
   },
   "author": "liusaipu",
@@ -53,5 +53,8 @@
     "type": "git",
     "url": "git+https://github.com/liusaipu/dsh-notes.git"
   },
-  "homepage": "https://github.com/liusaipu/dsh-notes#readme"
+  "homepage": "https://github.com/liusaipu/dsh-notes#readme",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
 }

@@ -6,13 +6,15 @@ window.__ModuleLoader__.load({
     const { useCallback, useEffect, useMemo, useRef, useState } = React
 
     const API = '/flomo/api'
-    const CACHE_KEY = 'dsh.flomo-notes.cache.v1'
+    const CACHE_PREFIX = 'dsh.flomo-notes.cache.v2.'
+    const LEGACY_CACHE_KEY = 'dsh.flomo-notes.cache.v1'
+    const ACTIVE_KEY = 'dsh.flomo-notes.active'
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
     const FALLBACK_ABOUT = {
       name: 'dsh-notes',
-      version: '1.1.0',
+      version: '1.2.0',
       developer: 'liusaipu',
-      updatedAt: '2026-11-10',
+      updatedAt: '2026-11-11',
       repository: 'https://github.com/liusaipu/dsh-notes',
       license: 'MIT',
     }
@@ -99,6 +101,22 @@ window.__ModuleLoader__.load({
       'about.releases': 'Releases',
       'about.note': 'Notes stay on this computer and sync through your own mailbox. No third-party server is involved.',
       'about.close': 'Close',
+      'tabs.new': 'New notebook',
+      'tabs.rename': 'Rename notebook',
+      'tabs.delete': 'Delete notebook',
+      'tabs.connect': 'Connect email',
+      'tabs.actions': 'Notebook actions',
+      'tabs.namePlaceholder': 'Notebook name',
+      'tabs.deleteConfirm':
+        'Delete this notebook? Only this computer is cleaned; the sync messages in the mailbox stay. If another device still uses that email, notes may come back.',
+      'notebook.defaultName': 'Notebook',
+      'notebook.save': 'Save',
+      'notebook.cancel': 'Cancel',
+      'notebook.created': 'Notebook created',
+      'notebook.renamed': 'Notebook renamed',
+      'notebook.deleted': 'Notebook deleted',
+      'notebook.last': 'Keep at least one notebook',
+      'notebook.conflict': 'This email is already used by another notebook.',
       'note.edit': 'Edit note',
       'note.delete': 'Delete note',
       'note.confirm': 'Confirm delete',
@@ -201,6 +219,22 @@ window.__ModuleLoader__.load({
       'about.releases': '发布记录',
       'about.note': '笔记保存在本机，并通过你自己的邮箱同步；不经过第三方服务器。',
       'about.close': '关闭',
+      'tabs.new': '新建笔记本',
+      'tabs.rename': '重命名笔记本',
+      'tabs.delete': '删除笔记本',
+      'tabs.connect': '连接邮箱',
+      'tabs.actions': '笔记本操作',
+      'tabs.namePlaceholder': '笔记本名称',
+      'tabs.deleteConfirm':
+        '删除这个笔记本？只清理本机目录，邮箱里的同步邮件不会删除；如果其他设备还连着该邮箱，笔记可能会再次同步回来。',
+      'notebook.defaultName': '笔记本',
+      'notebook.save': '保存',
+      'notebook.cancel': '取消',
+      'notebook.created': '笔记本已创建',
+      'notebook.renamed': '笔记本已重命名',
+      'notebook.deleted': '笔记本已删除',
+      'notebook.last': '至少保留一个笔记本',
+      'notebook.conflict': '这个邮箱已经被另一个笔记本使用。',
       'note.edit': '编辑笔记',
       'note.delete': '删除笔记',
       'note.confirm': '确认删除',
@@ -247,20 +281,23 @@ window.__ModuleLoader__.load({
 
     /* ---------- data helpers ---------- */
 
-    async function fetchState() {
-      const response = await fetch(API, { method: 'GET', headers: { accept: 'application/json' } })
+    async function fetchState(notebook) {
+      const url = notebook ? `${API}?notebook=${encodeURIComponent(notebook)}` : API
+      const response = await fetch(url, { method: 'GET', headers: { accept: 'application/json' } })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data || data.ok !== true) {
-        throw new Error((data && data.error) || `HTTP ${response.status}`)
+        const error = new Error((data && data.error) || `HTTP ${response.status}`)
+        error.code = data && data.code
+        throw error
       }
       return data
     }
 
-    async function callApi(action, payload = {}) {
+    async function callApi(action, payload = {}, notebook = '') {
       const response = await fetch(API, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, ...payload }),
+        body: JSON.stringify({ action, ...(notebook ? { notebook } : {}), ...payload }),
       })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data || data.ok !== true) {
@@ -271,9 +308,10 @@ window.__ModuleLoader__.load({
       return data
     }
 
-    function readCache() {
+    function readCache(notebook) {
+      if (!notebook) return null
       try {
-        const raw = window.localStorage.getItem(CACHE_KEY)
+        const raw = window.localStorage.getItem(CACHE_PREFIX + notebook)
         if (!raw) return null
         const parsed = JSON.parse(raw)
         if (!parsed || !Array.isArray(parsed.notes)) return null
@@ -283,17 +321,46 @@ window.__ModuleLoader__.load({
           sync: parsed.sync || null,
           about: parsed.about || null,
           version: Number(parsed.version) || 0,
+          draft: typeof parsed.draft === 'string' ? parsed.draft : '',
+          query: typeof parsed.query === 'string' ? parsed.query : '',
+          activeTag: typeof parsed.activeTag === 'string' ? parsed.activeTag : '',
         }
       } catch {
         return null
       }
     }
 
-    function writeCache(value) {
+    function writeCache(notebook, value) {
+      if (!notebook) return
       try {
-        window.localStorage.setItem(CACHE_KEY, JSON.stringify(value))
+        window.localStorage.setItem(CACHE_PREFIX + notebook, JSON.stringify(value))
       } catch {
         /* cache is a convenience; never break the page over it */
+      }
+    }
+
+    function readActiveNotebook() {
+      try {
+        return window.localStorage.getItem(ACTIVE_KEY) || ''
+      } catch {
+        return ''
+      }
+    }
+
+    function writeActiveNotebook(notebook) {
+      try {
+        if (notebook) window.localStorage.setItem(ACTIVE_KEY, notebook)
+        else window.localStorage.removeItem(ACTIVE_KEY)
+      } catch {
+        /* ignore quota / disabled storage */
+      }
+    }
+
+    function dropLegacyCache() {
+      try {
+        window.localStorage.removeItem(LEGACY_CACHE_KEY)
+      } catch {
+        /* ignore */
       }
     }
 
@@ -314,11 +381,14 @@ window.__ModuleLoader__.load({
     const INLINE_MARKDOWN =
       /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*|__([^_\n]+)__|~~([^~\n]+)~~|\*([^*\n]+)\*|_([^_\n]+)_|(https?:\/\/[^\s<>]+)|(#[^\s#]{1,32})/g
 
-    function imageSource(raw) {
+    function imageSource(raw, notebook) {
       const value = String(raw || '').trim()
       if (value.startsWith('dsh-image:')) {
         const id = value.slice('dsh-image:'.length)
-        return IMAGE_ID_PATTERN.test(id) ? IMAGE_PATH + encodeURIComponent(id) : ''
+        if (!IMAGE_ID_PATTERN.test(id)) return ''
+        return notebook
+          ? IMAGE_PATH + encodeURIComponent(notebook) + '/' + encodeURIComponent(id)
+          : IMAGE_PATH + encodeURIComponent(id)
       }
       if (/^https?:\/\//i.test(value)) return value
       return ''
@@ -342,7 +412,7 @@ window.__ModuleLoader__.load({
         const key = prefix + '-' + String(index++)
         if (match[1] !== undefined) {
           const alt = match[1] || (ctx && ctx.alt) || 'image'
-          const src = imageSource(match[2])
+          const src = imageSource(match[2], ctx && ctx.notebook)
           if (src) {
             nodes.push(
               h('img', {
@@ -662,8 +732,8 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'qm-md' }, ...blocks)
     }
 
-    function MarkdownNote({ text, onTag, alt }) {
-      return renderMarkdown(text, { onTag, alt })
+    function MarkdownNote({ text, onTag, alt, notebook }) {
+      return renderMarkdown(text, { onTag, alt, notebook })
     }
 
     const IMAGE_MAX_EDGE = 1600
@@ -1136,6 +1206,24 @@ window.__ModuleLoader__.load({
 .qm-title{margin:0;font-size:22px;font-weight:650;line-height:1.25;letter-spacing:.01em}
 .qm-sub{margin:6px 0 0;font-size:13px;color:var(--dsw-alias-label-secondary)}
 .qm-head-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.qm-tabs-wrap{position:relative;display:flex;align-items:center;gap:6px;min-width:0}
+.qm-tabs{display:flex;align-items:center;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none;padding:1px 0}
+.qm-tabs::-webkit-scrollbar{display:none}
+.qm-tab{display:inline-flex;align-items:center;gap:6px;height:30px;max-width:190px;padding:0 10px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;font-weight:500;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.qm-tab:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent);color:var(--dsw-alias-label-primary)}
+.qm-tab[data-active="true"]{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 22%,transparent);color:var(--dsw-alias-brand-primary);font-weight:600}
+.qm-tab-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.qm-tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 9%,transparent);color:var(--dsw-alias-label-secondary);font-size:9.5px;font-weight:700;line-height:1}
+.qm-tab-badge--error{background:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-bg-base)}
+.qm-tab-badge--sync{width:7px;min-width:7px;height:7px;padding:0;background:var(--dsw-alias-brand-primary);animation:qm-pulse 1s ease-in-out infinite}
+.qm-tab-add,.qm-tab-more{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:18px;line-height:1;cursor:pointer}
+.qm-tab-add:hover,.qm-tab-more:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 6%,transparent);color:var(--dsw-alias-label-primary)}
+.qm-tab-more{font-size:16px}
+.qm-tab-menu{position:absolute;top:36px;right:0;z-index:30;display:flex;flex-direction:column;min-width:150px;padding:5px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.16)}
+.qm-tab-menu-item{display:flex;align-items:center;width:100%;height:30px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.qm-tab-menu-item:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 6%,transparent)}
+.qm-tab-menu-item--danger{color:var(--dsw-alias-state-error-primary)}
+.qm-nb-dialog{width:min(400px,100%)}
 .qm-status{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:999px;border:1px solid transparent;background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent);font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;cursor:default}
 button.qm-status{cursor:pointer}
 button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
@@ -1319,8 +1407,12 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 
     function MemoPage() {
       const tr = useTranslate()
-      const [initial] = useState(() => readCache())
+      const [initialNotebook] = useState(() => readActiveNotebook())
+      const [initial] = useState(() => readCache(initialNotebook))
 
+      const [notebooks, setNotebooks] = useState([])
+      const [notebookId, setNotebookId] = useState(initialNotebook || '')
+      const [notebook, setNotebook] = useState(initialNotebook ? { id: initialNotebook, name: '' } : null)
       const [notes, setNotes] = useState(initial ? initial.notes : [])
       const [account, setAccount] = useState(initial ? initial.account : null)
       const [sync, setSync] = useState(
@@ -1330,9 +1422,9 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       )
       const [phase, setPhase] = useState(initial && initial.notes.length ? 'ready' : 'loading')
       const [offline, setOffline] = useState(false)
-      const [query, setQuery] = useState('')
-      const [activeTag, setActiveTag] = useState('')
-      const [draft, setDraft] = useState('')
+      const [query, setQuery] = useState(initial ? initial.query : '')
+      const [activeTag, setActiveTag] = useState(initial ? initial.activeTag : '')
+      const [draft, setDraft] = useState(initial ? initial.draft : '')
       const [creating, setCreating] = useState(false)
       const [editingId, setEditingId] = useState(null)
       const [editText, setEditText] = useState('')
@@ -1342,6 +1434,8 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const [deletingId, setDeletingId] = useState(null)
       const [settingsOpen, setSettingsOpen] = useState(false)
       const [aboutOpen, setAboutOpen] = useState(false)
+      const [notebookMenuOpen, setNotebookMenuOpen] = useState(false)
+      const [notebookDialog, setNotebookDialog] = useState(null)
       const [about, setAbout] = useState(
         initial && initial.about ? { ...FALLBACK_ABOUT, ...initial.about } : FALLBACK_ABOUT,
       )
@@ -1350,12 +1444,19 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const [uploading, setUploading] = useState(0)
       const [previewEdit, setPreviewEdit] = useState(false)
 
-      const versionRef = useRef(0)
+      const versionRef = useRef(initial ? initial.version : 0)
+      const activeRef = useRef(initialNotebook || '')
+      const requestSeq = useRef(0)
+      const queryRef = useRef(query)
+      const activeTagRef = useRef(activeTag)
+      const draftByBook = useRef(new Map())
+      const filterByBook = useRef(new Map())
+      const notebookMenuRef = useRef(null)
       const aboutRef = useRef(about)
       const busyRef = useRef(0)
       const composerRef = useRef(null)
       const editRef = useRef(null)
-      const draftRef = useRef('')
+      const draftRef = useRef(draft)
       const editTextRef = useRef('')
       const toastTimer = useRef(null)
       const confirmTimer = useRef(null)
@@ -1371,8 +1472,20 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       }, [draft])
 
       useEffect(() => {
+        queryRef.current = query
+      }, [query])
+
+      useEffect(() => {
+        activeTagRef.current = activeTag
+      }, [activeTag])
+
+      useEffect(() => {
         editTextRef.current = editText
       }, [editText])
+
+      useEffect(() => {
+        dropLegacyCache()
+      }, [])
 
       useEffect(
         () => () => {
@@ -1382,8 +1495,17 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         [],
       )
 
-      const applyState = useCallback((data) => {
+      const applyState = useCallback((data, options = {}) => {
         if (!data || typeof data.version !== 'number') return
+        const force = Boolean(options.force)
+        const nextId = data.active || (data.notebook && data.notebook.id) || activeRef.current
+        if (nextId && activeRef.current && nextId !== activeRef.current && !force) return
+        if (nextId && nextId !== activeRef.current) {
+          activeRef.current = nextId
+          setNotebookId(nextId)
+          writeActiveNotebook(nextId)
+          versionRef.current = 0
+        }
         if (data.version < versionRef.current) return
         versionRef.current = data.version
         const serverNotes = Array.isArray(data.notes) ? data.notes : []
@@ -1396,35 +1518,164 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           pending: Number(data.pending) || 0,
         }
         const nextAbout = data.about ? { ...FALLBACK_ABOUT, ...data.about } : aboutRef.current
+        const summaries = Array.isArray(data.notebooks) ? data.notebooks : []
+        const nextNotebook =
+          data.notebook || summaries.find((item) => item.id === nextId) || null
         aboutRef.current = nextAbout
         setAbout(nextAbout)
+        setNotebooks(summaries)
+        if (nextNotebook) setNotebook(nextNotebook)
         setNotes(serverNotes)
         setAccount(nextAccount)
         setSync(nextSync)
         setOffline(false)
         setPhase('ready')
-        writeCache({
-          notes: serverNotes,
-          account: nextAccount,
-          sync: nextSync,
-          about: nextAbout,
-          version: data.version,
-        })
+        const activeId = activeRef.current || nextId
+        if (activeId) {
+          writeCache(activeId, {
+            notes: serverNotes,
+            account: nextAccount,
+            sync: nextSync,
+            about: nextAbout,
+            version: data.version,
+            draft: draftRef.current,
+            query: queryRef.current,
+            activeTag: activeTagRef.current,
+          })
+        }
       }, [])
 
-      const refresh = useCallback(async () => {
-        try {
-          const data = await fetchState()
-          if (busyRef.current > 0) {
-            setOffline(false)
-            return
+      const api = useCallback(
+        (action, payload = {}) => callApi(action, payload, activeRef.current),
+        [],
+      )
+
+      const refresh = useCallback(
+        async (targetId) => {
+          const target = targetId || activeRef.current
+          const seq = ++requestSeq.current
+          try {
+            const data = await fetchState(target)
+            if (seq !== requestSeq.current) return
+            if (target && data.active && data.active !== target) return
+            if (busyRef.current > 0) {
+              setOffline(false)
+              return
+            }
+            applyState(data)
+          } catch (error) {
+            if (seq !== requestSeq.current) return
+            if (error && error.code === 'NOTEBOOK_NOT_FOUND' && target) {
+              activeRef.current = ''
+              setNotebookId('')
+              writeActiveNotebook('')
+              versionRef.current = 0
+              setNotebook(null)
+              setPhase('loading')
+              void refresh('')
+              return
+            }
+            setOffline(true)
+            setPhase((current) => (current === 'loading' ? 'offline' : current))
           }
-          applyState(data)
-        } catch {
-          setOffline(true)
-          setPhase((current) => (current === 'loading' ? 'offline' : current))
-        }
-      }, [applyState])
+        },
+        [applyState],
+      )
+
+      const switchNotebook = useCallback(
+        (targetId) => {
+          const id = String(targetId || '')
+          if (!id || id === activeRef.current) return
+          if (activeRef.current) {
+            draftByBook.current.set(activeRef.current, draftRef.current)
+            filterByBook.current.set(activeRef.current, {
+              query: queryRef.current,
+              activeTag: activeTagRef.current,
+            })
+            const currentCache = readCache(activeRef.current)
+            if (currentCache) {
+              writeCache(activeRef.current, {
+                ...currentCache,
+                draft: draftRef.current,
+                query: queryRef.current,
+                activeTag: activeTagRef.current,
+              })
+            }
+          }
+
+          activeRef.current = id
+          requestSeq.current += 1
+          setNotebookId(id)
+          writeActiveNotebook(id)
+          const summary = notebooks.find((item) => item.id === id)
+          setNotebook(summary || { id, name: '' })
+          setNotebookMenuOpen(false)
+          setEditingId(null)
+          setEditText('')
+          editTextRef.current = ''
+          setEditError('')
+          setPreviewEdit(false)
+          setConfirmId(null)
+          setOffline(false)
+
+          const cached = readCache(id)
+          if (cached) {
+            versionRef.current = cached.version || 0
+            setNotes(cached.notes)
+            setAccount(cached.account || null)
+            setSync(
+              cached.sync || {
+                configured: false,
+                syncing: false,
+                lastSyncAt: 0,
+                lastError: null,
+                pending: 0,
+              },
+            )
+            setPhase('ready')
+            if (cached.about) {
+              const nextAbout = { ...FALLBACK_ABOUT, ...cached.about }
+              aboutRef.current = nextAbout
+              setAbout(nextAbout)
+            }
+          } else {
+            versionRef.current = 0
+            setNotes([])
+            setAccount(null)
+            setSync({
+              configured: false,
+              syncing: false,
+              lastSyncAt: 0,
+              lastError: null,
+              pending: 0,
+            })
+            setPhase('loading')
+          }
+
+          const filters = filterByBook.current.get(id)
+          const nextDraft = draftByBook.current.has(id)
+            ? draftByBook.current.get(id)
+            : cached
+              ? cached.draft
+              : ''
+          const nextQuery = filters ? filters.query : cached ? cached.query : ''
+          const nextTag = filters ? filters.activeTag : cached ? cached.activeTag : ''
+          setDraft(nextDraft)
+          draftRef.current = nextDraft
+          setQuery(nextQuery)
+          queryRef.current = nextQuery
+          setActiveTag(nextTag)
+          activeTagRef.current = nextTag
+
+          void api('setActive', { notebook: id })
+            .then((data) => {
+              if (activeRef.current === id) applyState(data, { force: true })
+            })
+            .catch(() => undefined)
+          void refresh(id)
+        },
+        [api, applyState, notebooks, refresh],
+      )
 
       useEffect(() => {
         let cancelled = false
@@ -1499,7 +1750,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         setCreating(true)
         busyRef.current += 1
         try {
-          const data = await callApi('create', { text })
+          const data = await api('create', { text })
           applyState(data)
           setDraft('')
           draftRef.current = ''
@@ -1539,7 +1790,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         setSavingId(editingId)
         busyRef.current += 1
         try {
-          const data = await callApi('update', { id: editingId, text })
+          const data = await api('update', { id: editingId, text })
           applyState(data)
           cancelEdit()
           toast(tr('toast.saved'))
@@ -1556,7 +1807,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         setDeletingId(id)
         busyRef.current += 1
         try {
-          const data = await callApi('delete', { id })
+          const data = await api('delete', { id })
           applyState(data)
           setConfirmId(null)
           if (editingId === id) cancelEdit()
@@ -1577,7 +1828,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         if (syncingNow) return
         setSyncingNow(true)
         try {
-          const data = await callApi('sync')
+          const data = await api('sync')
           applyState(data)
           setSync((current) => ({ ...current, syncing: true }))
           toast(tr('toast.synced'))
@@ -1587,6 +1838,157 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           setTimeout(() => setSyncingNow(false), 1200)
         }
       }
+
+      function openNotebookDialog(mode) {
+        setNotebookMenuOpen(false)
+        if (mode === 'rename' && !notebook) return
+        setNotebookDialog({
+          mode,
+          name:
+            mode === 'create'
+              ? `${tr('notebook.defaultName')} ${notebooks.length + 1}`
+              : notebook.name,
+          error: '',
+          busy: false,
+        })
+      }
+
+      async function submitNotebookName(name) {
+        if (!notebookDialog || notebookDialog.busy) return
+        const mode = notebookDialog.mode
+        setNotebookDialog((current) => (current ? { ...current, busy: true, error: '' } : current))
+        busyRef.current += 1
+        try {
+          const data = await api(mode === 'create' ? 'createNotebook' : 'renameNotebook', { name })
+          const nextId = data.active || activeRef.current
+          if (nextId && nextId !== activeRef.current) {
+            const previous = activeRef.current
+            if (previous) {
+              draftByBook.current.set(previous, draftRef.current)
+              filterByBook.current.set(previous, {
+                query: queryRef.current,
+                activeTag: activeTagRef.current,
+              })
+            }
+            activeRef.current = nextId
+            setNotebookId(nextId)
+            writeActiveNotebook(nextId)
+            versionRef.current = 0
+            requestSeq.current += 1
+            if (mode === 'create') {
+              draftByBook.current.set(nextId, '')
+              filterByBook.current.set(nextId, { query: '', activeTag: '' })
+              setDraft('')
+              draftRef.current = ''
+              setQuery('')
+              queryRef.current = ''
+              setActiveTag('')
+              activeTagRef.current = ''
+            }
+          }
+          applyState(data, { force: true })
+          setNotebookDialog(null)
+          toast(mode === 'create' ? tr('notebook.created') : tr('notebook.renamed'))
+        } catch (error) {
+          setNotebookDialog((current) =>
+            current
+              ? { ...current, busy: false, error: error.message || tr('toast.error') }
+              : current,
+          )
+        } finally {
+          busyRef.current -= 1
+        }
+      }
+
+      async function deleteNotebook() {
+        if (!notebook || busyRef.current > 0) return
+        if (notebooks.length <= 1) {
+          setNotebookMenuOpen(false)
+          toast(tr('notebook.last'), 'error')
+          return
+        }
+        if (!window.confirm(tr('tabs.deleteConfirm') + '\n\n' + notebook.name)) return
+        const removing = notebook.id
+        setNotebookMenuOpen(false)
+        busyRef.current += 1
+        try {
+          const data = await api('deleteNotebook', { notebook: removing })
+          try {
+            window.localStorage.removeItem(CACHE_PREFIX + removing)
+          } catch {
+            /* cache removal is best-effort */
+          }
+          draftByBook.current.delete(removing)
+          filterByBook.current.delete(removing)
+          const nextId = data.active || ''
+          const previous = activeRef.current
+          if (nextId) {
+            if (nextId !== previous) {
+              const cached = readCache(nextId)
+              const filters = filterByBook.current.get(nextId)
+              const nextDraft = draftByBook.current.has(nextId)
+                ? draftByBook.current.get(nextId)
+                : cached
+                  ? cached.draft
+                  : ''
+              const nextQuery = filters ? filters.query : cached ? cached.query : ''
+              const nextTag = filters ? filters.activeTag : cached ? cached.activeTag : ''
+              setDraft(nextDraft)
+              draftRef.current = nextDraft
+              setQuery(nextQuery)
+              queryRef.current = nextQuery
+              setActiveTag(nextTag)
+              activeTagRef.current = nextTag
+            }
+            activeRef.current = nextId
+            setNotebookId(nextId)
+            writeActiveNotebook(nextId)
+            versionRef.current = 0
+            requestSeq.current += 1
+          }
+          applyState(data, { force: true })
+          toast(tr('notebook.deleted'))
+        } catch (error) {
+          toast(error.message || tr('toast.error'), 'error')
+        } finally {
+          busyRef.current -= 1
+        }
+      }
+
+      useEffect(() => {
+        if (!notebookMenuOpen) return undefined
+        const onDown = (event) => {
+          if (notebookMenuRef.current && !notebookMenuRef.current.contains(event.target)) {
+            setNotebookMenuOpen(false)
+          }
+        }
+        const onKey = (event) => {
+          if (event.key === 'Escape') setNotebookMenuOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        document.addEventListener('keydown', onKey)
+        return () => {
+          document.removeEventListener('mousedown', onDown)
+          document.removeEventListener('keydown', onKey)
+        }
+      }, [notebookMenuOpen])
+
+      useEffect(() => {
+        const onKey = (event) => {
+          const tag = event.target && event.target.tagName
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target && event.target.isContentEditable)) return
+          if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
+          const index = Number(event.key)
+          if (!Number.isInteger(index) || index < 1 || index > 9) return
+          const target = notebooks[index - 1]
+          if (target) {
+            event.preventDefault()
+            switchNotebook(target.id)
+          }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+      }, [notebooks, switchNotebook])
 
       function tagClick(tag) {
         setActiveTag((current) => (current === tag ? '' : tag))
@@ -1639,6 +2041,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           .filter((file) => file && file.type && file.type.startsWith('image/'))
           .slice(0, 6)
         if (list.length === 0) return
+        const uploadNotebook = activeRef.current
         setUploading((count) => count + 1)
         try {
           const snippets = []
@@ -1648,16 +2051,23 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
             const comma = dataUrl.indexOf(',')
             const data = comma >= 0 ? dataUrl.slice(comma + 1) : ''
             if (!data) throw new Error(tr('image.failed'))
-            const result = await callApi('uploadImage', {
-              data,
-              mime: prepared.type || 'image/webp',
-              name: file.name || 'image',
-            })
+            const result = await callApi(
+              'uploadImage',
+              {
+                data,
+                mime: prepared.type || 'image/webp',
+                name: file.name || 'image',
+              },
+              uploadNotebook,
+            )
             if (result && result.id) {
               snippets.push('![' + tr('image.alt') + '](dsh-image:' + result.id + ')')
             }
           }
           if (snippets.length === 0) throw new Error(tr('image.failed'))
+          if (activeRef.current !== uploadNotebook) {
+            throw new Error(tr('image.failed'))
+          }
           const snippet = snippets.join('\n')
           if (target === 'edit') insertEdit(snippet)
           else insertDraft(snippet)
@@ -1730,7 +2140,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 ? h(
                     'div',
                     { className: 'qm-edit-preview' },
-                    h(MarkdownNote, { text: editText, alt: tr('image.alt') }),
+                    h(MarkdownNote, { text: editText, alt: tr('image.alt'), notebook: notebookId }),
                   )
                 : null,
               h(
@@ -1817,7 +2227,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
         return h(
           'article',
           { key: note.id, className: 'qm-card' },
-          h(MarkdownNote, { text: note.text, onTag: tagClick, alt: tr('image.alt') }),
+          h(MarkdownNote, { text: note.text, onTag: tagClick, alt: tr('image.alt'), notebook: notebookId }),
           h(
             'footer',
             { className: 'qm-card-foot' },
@@ -1937,6 +2347,122 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 GearIcon(),
               ),
             ),
+          ),
+          h(
+            'div',
+            { className: 'qm-tabs-wrap', ref: notebookMenuRef },
+            h(
+              'div',
+              { className: 'qm-tabs', role: 'tablist', 'aria-label': tr('title') },
+              notebooks.map((item) =>
+                h(
+                  'button',
+                  {
+                    key: item.id,
+                    type: 'button',
+                    className: 'qm-tab',
+                    'data-active': item.id === notebookId ? 'true' : 'false',
+                    role: 'tab',
+                    'aria-selected': item.id === notebookId,
+                    title: item.name,
+                    onClick: () => switchNotebook(item.id),
+                    onDoubleClick: () => {
+                      if (item.id === notebookId) openNotebookDialog('rename')
+                    },
+                  },
+                  h('span', { className: 'qm-tab-name' }, item.name),
+                  item.lastError
+                    ? h(
+                        'span',
+                        {
+                          className: 'qm-tab-badge qm-tab-badge--error',
+                          title: item.lastError,
+                          'aria-label': tr('status.error'),
+                        },
+                        '!',
+                      )
+                    : item.syncing
+                      ? h('span', {
+                          className: 'qm-tab-badge qm-tab-badge--sync',
+                          title: tr('status.syncing'),
+                          'aria-label': tr('status.syncing'),
+                        })
+                      : item.pending > 0
+                        ? h(
+                            'span',
+                            {
+                              className: 'qm-tab-badge',
+                              title: tr('status.pending'),
+                              'aria-label': tr('status.pending'),
+                            },
+                            item.pending > 99 ? '99+' : String(item.pending),
+                          )
+                        : null,
+                ),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'qm-tab-add',
+                  title: tr('tabs.new'),
+                  'aria-label': tr('tabs.new'),
+                  onClick: () => openNotebookDialog('create'),
+                },
+                '+',
+              ),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'qm-tab-more',
+                title: tr('tabs.actions'),
+                'aria-label': tr('tabs.actions'),
+                onClick: () => setNotebookMenuOpen((value) => !value),
+                'aria-expanded': notebookMenuOpen,
+              },
+              '⋯',
+            ),
+            notebookMenuOpen
+              ? h(
+                  'div',
+                  { className: 'qm-tab-menu', role: 'menu' },
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tab-menu-item',
+                      role: 'menuitem',
+                      onClick: () => openNotebookDialog('rename'),
+                    },
+                    tr('tabs.rename'),
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tab-menu-item',
+                      role: 'menuitem',
+                      onClick: () => {
+                        setNotebookMenuOpen(false)
+                        setSettingsOpen(true)
+                      },
+                    },
+                    tr('tabs.connect'),
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'qm-tab-menu-item qm-tab-menu-item--danger',
+                      role: 'menuitem',
+                      onClick: () => void deleteNotebook(),
+                    },
+                    tr('tabs.delete'),
+                  ),
+                )
+              : null,
           ),
           offline
             ? h(
@@ -2183,9 +2709,22 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           open: settingsOpen,
           account,
           sync,
+          notebookName: notebook ? notebook.name : '',
+          api,
           onClose: () => setSettingsOpen(false),
           onState: applyState,
           toast,
+        }),
+        h(NotebookNameDialog, {
+          open: Boolean(notebookDialog),
+          mode: notebookDialog ? notebookDialog.mode : 'create',
+          initialName: notebookDialog ? notebookDialog.name : '',
+          error: notebookDialog ? notebookDialog.error : '',
+          busy: notebookDialog ? notebookDialog.busy : false,
+          onClose: () => {
+            if (!notebookDialog || !notebookDialog.busy) setNotebookDialog(null)
+          },
+          onSubmit: (name) => void submitNotebookName(name),
         }),
         h(AboutDialog, {
           open: aboutOpen,
@@ -2197,7 +2736,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 
     /* ---------- settings ---------- */
 
-    function SettingsDialog({ open, account, sync, onClose, onState, toast }) {
+    function SettingsDialog({ open, account, sync, notebookName, api, onClose, onState, toast }) {
       const tr = useTranslate()
       const [email, setEmail] = useState('')
       const [password, setPassword] = useState('')
@@ -2287,7 +2826,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
           const payload = { email: email.trim(), password, folder: folder.trim() || 'DSH Notes' }
           if (advanced && server.trim()) payload.host = server.trim()
           if (advanced && port.trim()) payload.port = Number(port)
-          const data = await callApi('account', payload)
+          const data = await api('account', payload)
           onState(data)
           setPassword('')
           setShowForm(false)
@@ -2301,7 +2840,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 
       async function disconnect() {
         try {
-          const data = await callApi('disconnect')
+          const data = await api('disconnect')
           onState(data)
           setDisconnectConfirm(false)
           setShowForm(true)
@@ -2315,7 +2854,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       async function syncHere() {
         setSyncingHere(true)
         try {
-          const data = await callApi('sync')
+          const data = await api('sync')
           onState(data)
           setSyncingHere(false)
           toast(tr('toast.synced'))
@@ -2354,7 +2893,11 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
             h(
               'div',
               null,
-              h('h2', { className: 'qm-dialog-title', id: 'qm-settings-title' }, tr('settings.title')),
+              h(
+                'h2',
+                { className: 'qm-dialog-title', id: 'qm-settings-title' },
+                `${tr('settings.title')} · ${notebookName || tr('notebook.defaultName')}`,
+              ),
               h('p', { className: 'qm-dialog-sub' }, tr('settings.intro')),
             ),
             h(
@@ -2572,6 +3115,155 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 h('p', { className: 'qm-help' }, tr('account.security')),
                 h('p', { className: 'qm-help' }, tr('account.outlook')),
               ),
+        ),
+      )
+    }
+
+    /* ---------- notebook name dialog ---------- */
+
+    function NotebookNameDialog({ open, mode, initialName, error, busy, onClose, onSubmit }) {
+      const tr = useTranslate()
+      const [name, setName] = useState(initialName || '')
+      const inputRef = useRef(null)
+      const dialogRef = useRef(null)
+      const previousFocus = useRef(null)
+
+      useEffect(() => {
+        if (!open) return undefined
+        setName(initialName || '')
+        previousFocus.current = document.activeElement
+        const bodyOverflow = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        const timer = setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus()
+            inputRef.current.select()
+          }
+        }, 0)
+        const onKey = (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            onClose()
+          }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => {
+          clearTimeout(timer)
+          document.body.style.overflow = bodyOverflow
+          document.removeEventListener('keydown', onKey)
+          if (previousFocus.current && previousFocus.current.focus) {
+            try {
+              previousFocus.current.focus()
+            } catch {
+              /* the trigger may be gone */
+            }
+          }
+        }
+      }, [open, initialName])
+
+      function trapTab(event) {
+        if (event.key !== 'Tab' || !dialogRef.current) return
+        const items = Array.from(
+          dialogRef.current.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((item) => item.offsetParent !== null)
+        if (items.length === 0) return
+        const first = items[0]
+        const last = items[items.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+
+      if (!open) return null
+
+      return h(
+        'div',
+        {
+          className: 'qm-modal',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget && !busy) onClose()
+          },
+        },
+        h(
+          'div',
+          {
+            className: 'qm-dialog qm-nb-dialog',
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-labelledby': 'qm-notebook-title',
+            ref: dialogRef,
+            onKeyDown: trapTab,
+          },
+          h(
+            'div',
+            { className: 'qm-dialog-head' },
+            h(
+              'div',
+              null,
+              h(
+                'h2',
+                { className: 'qm-dialog-title', id: 'qm-notebook-title' },
+                mode === 'create' ? tr('tabs.new') : tr('tabs.rename'),
+              ),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'qm-icon-btn qm-dialog-close',
+                title: tr('settings.close'),
+                'aria-label': tr('settings.close'),
+                onClick: onClose,
+                disabled: busy,
+              },
+              CloseIcon(),
+            ),
+          ),
+          h(
+            'form',
+            { className: 'qm-form', onSubmit: (event) => {
+              event.preventDefault()
+              const clean = name.trim()
+              if (clean && !busy) onSubmit(clean)
+            } },
+            h(
+              'div',
+              { className: 'qm-field' },
+              h('label', { className: 'qm-label', htmlFor: 'qm-notebook-name' }, tr('tabs.namePlaceholder')),
+              h('input', {
+                id: 'qm-notebook-name',
+                ref: inputRef,
+                className: 'qm-input',
+                value: name,
+                maxLength: 32,
+                spellCheck: false,
+                disabled: busy,
+                placeholder: tr('tabs.namePlaceholder'),
+                onChange: (event) => setName(event.target.value),
+              }),
+            ),
+            error ? h('div', { className: 'qm-form-error', role: 'alert' }, error) : null,
+            h(
+              'div',
+              { className: 'qm-form-actions' },
+              h(
+                'button',
+                { type: 'button', className: 'qm-btn qm-btn--ghost', onClick: onClose, disabled: busy },
+                tr('notebook.cancel'),
+              ),
+              h(
+                'button',
+                { type: 'submit', className: 'qm-btn qm-btn--primary', disabled: busy || !name.trim() },
+                busy ? tr('status.syncing') : tr('notebook.save'),
+              ),
+            ),
+          ),
         ),
       )
     }
