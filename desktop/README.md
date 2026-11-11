@@ -1,6 +1,6 @@
 # Quick Memo Desktop · Tauri 2 + Rust
 
-这是 `dsh-notes` 项目的桌面版，产品名 **Quick Memo**。当前是 **IMAP 技术验证（spike）**，不是完整笔记应用。
+这是 `dsh-quicknotes` 项目的桌面版，产品名 **Quick Memo**。当前是 **IMAP 技术验证（spike）**，不是完整笔记应用。
 
 ## 当前已验证
 
@@ -95,4 +95,4 @@ desktop/
   app-icon.png         图标源文件
 ```
 
-插件本体仍在仓库根目录；桌面版不进入 `dsh-notes` 插件的 npm tarball。
+插件本体仍在仓库根目录；桌面版不进入 `dsh-quicknotes` 插件的 npm tarball。

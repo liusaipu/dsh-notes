@@ -29,7 +29,7 @@ try {
 }
 const author = manifest.author
 const ABOUT = {
-  name: manifest.name || 'dsh-notes',
+  name: manifest.name || 'dsh-quicknotes',
   version: manifest.version || '0.0.0',
   developer: typeof author === 'string' ? author : (author && author.name) || 'liusaipu',
   updatedAt:

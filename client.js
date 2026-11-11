@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-notes',
+  id: 'dsh-quicknotes',
   factory(require) {
     const React = require('react')
     const h = React.createElement
@@ -11,8 +11,8 @@ window.__ModuleLoader__.load({
     const ACTIVE_KEY = 'dsh.flomo-notes.active'
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
     const FALLBACK_ABOUT = {
-      name: 'dsh-notes',
-      version: '1.2.0',
+      name: 'dsh-quicknotes',
+      version: '1.3.0',
       developer: 'liusaipu',
       updatedAt: '2026-11-11',
       repository: 'https://github.com/liusaipu/dsh-notes',

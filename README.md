@@ -6,6 +6,8 @@
 
 仓库：<https://github.com/liusaipu/dsh-notes>
 
+> 插件包名：**`dsh-quicknotes`**（从 1.3.0 起）。仓库名仍是 `dsh-notes`，旧的包名 `dsh-notes` 已停用；现有本地笔记和邮箱连接不会因为改名丢失。
+
 ## 设计：为什么用邮箱同步
 
 不依赖任何中转服务器，也不需要 DSH 账号提供云存储：
@@ -114,13 +116,13 @@ $DSH_HOME/storages/flomo/
 
 ### 0. 从 GitHub Release 安装（推荐给其他人）
 
-公开 Release：<https://github.com/liusaipu/dsh-notes/releases/tag/v1.2.0>
+公开 Release：<https://github.com/liusaipu/dsh-notes/releases/tag/v1.3.0>
 
-- 直接下载 [dsh-notes-1.2.0.tgz](https://github.com/liusaipu/dsh-notes/releases/download/v1.2.0/dsh-notes-1.2.0.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
+- 直接下载 [dsh-quicknotes-1.3.0.tgz](https://github.com/liusaipu/dsh-notes/releases/download/v1.3.0/dsh-quicknotes-1.3.0.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
 - 或者把 Release 资源 URL 直接粘贴到同一个输入框：
 
 ```text
-https://github.com/liusaipu/dsh-notes/releases/download/v1.2.0/dsh-notes-1.2.0.tgz
+https://github.com/liusaipu/dsh-notes/releases/download/v1.3.0/dsh-quicknotes-1.3.0.tgz
 ```
 
 安装器支持 tarball URL 或本地 tarball 路径，不需要 npm 账号或 GitHub 账号。若网络访问 GitHub 受限，先下载 tarball 再传过去。
@@ -129,7 +131,7 @@ https://github.com/liusaipu/dsh-notes/releases/download/v1.2.0/dsh-notes-1.2.0.t
 
 ```bash
 npm pack
-# 得到 dsh-notes-1.2.0.tgz
+# 得到 dsh-quicknotes-1.3.0.tgz
 ```
 
 把 tarball 用 AirDrop、网盘或 U 盘复制到另一台机器，然后：
@@ -144,7 +146,7 @@ npm pack
 cd dsh-notes
 git init -b main
 git add .
-git commit -m "dsh-notes 1.2.0"
+git commit -m "dsh-quicknotes 1.3.0"
 git remote add origin https://github.com/liusaipu/dsh-notes.git
 git push -u origin main
 ```
@@ -166,9 +168,11 @@ DSH 本身没有内置的官方市场；“发现（Discover）”读取的是�
 3. 要让本插件进入这个索引：把上面的 Git 仓库公开，给仓库加上 GitHub topic `dsh-plugin`，然后到 [dsh.so 提交插件](https://www.dsh.so/zh/submit/) 粘贴仓库地址。它会自动拉取源码、检查 `dsh` 字段 / README / SPDX license / 安全扫描，生成市场条目并提交审核。审核合并后，另一台机器刷新索引就能看到并安装。
 4. dsh.so 是第三方社区项目，不是 DeepSeek 官方市场；新插件通常先以 **Declared（声明兼容）** 收录，独立测试通过后才会标为 Verified。
 
-> **2026-11-11 检查结果**：dsh.so 索引里已经存在另一个同名 `dsh-notes` 条目（作者 `DynaMyhome`，版本 `0.8.0`），另有 `@dsh-external/dsh-notes`、`dsh-notes-markdown` 等相似名称；本插件 `liusaipu/dsh-notes` 目前没有被收录。直接提交 `dsh-notes` 会发生名称冲突，需要先用唯一的包名（例如 `dsh-quick-memo` / `dsh-flomo-notes`）重新提交，或只使用上面的 GitHub Release / 自建索引。
+> **2026-11-11 检查结果**：本插件以前确实被 dsh.so 收录过，展示名为 `@liusaipu/dsh-notes`（artifact slug `dsh-notes-7`，版本停在 `v1.1.0`）。但裸名 `dsh-notes` 已被多个其他仓库占用（`dsh-notes`、`dsh-notes-2` … `dsh-notes-8`），所以 dsh.so 给它加了 `-7` 后缀，裸名搜索很难找到。
+>
+> 从 1.3.0 起包名改为 **`dsh-quicknotes`**，准备用这个唯一名字提交新的 dsh.so 条目；旧的 `@liusaipu/dsh-notes` 条目不再更新，请安装新的 `dsh-quicknotes`。
 
-> 当前通过 Git / dsh.so 安装，不需要 npm。`dsh-notes` 这个名字在 npm 上已被他人占用；如果以后要发布到 **npm**，请改成 `dsh-flomo-notes` 这类你拥有的名字，并同步修改 `package.json`、`client.js` 的模块 id 和 `cordis.patch.yml` 的行名。自建索引脚本的 `--npm` 模式会拒绝 `dsh-notes`，避免生成指向别人包的条目。
+> 当前通过 Git / dsh.so 安装，不需要 npm。包名已经改为 `dsh-quicknotes`；注意 `dsh-notes`、`dsh-quick-notes`、`dsh-quicknote` 都已被其他项目使用，不要再使用这些名字投稿。
 
 ### 4. 自建一个市场索引（完全可控）
 
