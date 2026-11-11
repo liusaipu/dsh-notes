@@ -14,6 +14,7 @@
         "zh": "像 flomo 一样随手记录，支持 Markdown 与图片，并可把笔记同步到邮箱文件夹，在多个 DSH Desktop 之间保持一致。"
       },
       "icon": "../icon.svg",
+      "author": "liusaipu",
       "homepage": "https://github.com/liusaipu/dsh-notes",
       "repository": {
         "url": "https://github.com/liusaipu/dsh-notes"
@@ -31,7 +32,7 @@
       "versions": [
         {
           "version": "1.2.0",
-          "publishTimestamp": 1794401929,
+          "publishTimestamp": 1794404381,
           "source": {
             "type": "git",
             "url": "https://github.com/liusaipu/dsh-notes",
