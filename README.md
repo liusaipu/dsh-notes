@@ -109,20 +109,18 @@ $DSH_HOME/storages/flomo/
 
 ## 安装到另一台 DSH Desktop
 
-> 当前源码版本为 **1.2.0**，包含多笔记本；下面的 Release 资源仍是 **1.1.0**，尚未包含多笔记本。需要从 Release 安装多笔记本版本时，需要先发布 1.2.0。
-
 
 这台机器上的安装是 profile 里的本地链接，不会自动出现在另一台机器。可以选下面任一种方式（要求 DSH Desktop ≥ 0.2.1-rc.5，对应 `package.json` 的 `engines.dsh`）：
 
 ### 0. 从 GitHub Release 安装（推荐给其他人）
 
-公开 Release：<https://github.com/liusaipu/dsh-notes/releases/tag/v1.1.0>
+公开 Release：<https://github.com/liusaipu/dsh-notes/releases/tag/v1.2.0>
 
-- 直接下载 [dsh-notes-1.1.0.tgz](https://github.com/liusaipu/dsh-notes/releases/download/v1.1.0/dsh-notes-1.1.0.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
+- 直接下载 [dsh-notes-1.2.0.tgz](https://github.com/liusaipu/dsh-notes/releases/download/v1.2.0/dsh-notes-1.2.0.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
 - 或者把 Release 资源 URL 直接粘贴到同一个输入框：
 
 ```text
-https://github.com/liusaipu/dsh-notes/releases/download/v1.1.0/dsh-notes-1.1.0.tgz
+https://github.com/liusaipu/dsh-notes/releases/download/v1.2.0/dsh-notes-1.2.0.tgz
 ```
 
 安装器支持 tarball URL 或本地 tarball 路径，不需要 npm 账号或 GitHub 账号。若网络访问 GitHub 受限，先下载 tarball 再传过去。
