@@ -12,10 +12,10 @@ window.__ModuleLoader__.load({
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
     const FALLBACK_ABOUT = {
       name: 'dsh-quicknotes',
-      version: '1.3.0',
+      version: '1.3.1',
       developer: 'liusaipu',
       updatedAt: '2026-11-11',
-      repository: 'https://github.com/liusaipu/dsh-notes',
+      repository: 'https://github.com/liusaipu/dsh-quicknotes',
       license: 'MIT',
     }
 

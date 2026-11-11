@@ -34,7 +34,7 @@ const ABOUT = {
   developer: typeof author === 'string' ? author : (author && author.name) || 'liusaipu',
   updatedAt:
     (manifest.dsh && manifest.dsh.about && manifest.dsh.about.updatedAt) || '2026-11-10',
-  repository: 'https://github.com/liusaipu/dsh-notes',
+  repository: 'https://github.com/liusaipu/dsh-quicknotes',
   license: manifest.license || 'MIT',
 }
 

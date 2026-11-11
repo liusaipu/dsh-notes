@@ -9,12 +9,12 @@
  *
  * Examples
  *   node scripts/make-market-index.mjs \
- *     --repo https://github.com/you/dsh-notes \
+ *     --repo https://github.com/you/dsh-quicknotes \
  *     --commit "$(git rev-parse HEAD)"
  *
  *   node scripts/make-market-index.mjs \
- *     --repo https://github.com/you/dsh-notes \
- *     --commit <sha> --path dsh-notes
+ *     --repo https://github.com/you/dsh-quicknotes \
+ *     --commit <sha> --path dsh-quicknotes
  *
  *   node scripts/make-market-index.mjs --npm --version 1.0.0
  */

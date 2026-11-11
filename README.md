@@ -4,9 +4,9 @@
 
 ![icon](./icon.svg)
 
-仓库：<https://github.com/liusaipu/dsh-notes>
+仓库：<https://github.com/liusaipu/dsh-quicknotes>
 
-> 插件包名：**`dsh-quicknotes`**（从 1.3.0 起）。仓库名仍是 `dsh-notes`，旧的包名 `dsh-notes` 已停用；现有本地笔记和邮箱连接不会因为改名丢失。
+> 插件包名：**`dsh-quicknotes`**（从 1.3.0 起），GitHub 仓库也从 `dsh-notes` 改名为 `dsh-quicknotes`（从 1.3.1 起）。旧的包名 `dsh-notes` 已停用；现有本地笔记和邮箱连接不会因为改名丢失。
 
 ## 设计：为什么用邮箱同步
 
@@ -116,13 +116,13 @@ $DSH_HOME/storages/flomo/
 
 ### 0. 从 GitHub Release 安装（推荐给其他人）
 
-公开 Release：<https://github.com/liusaipu/dsh-notes/releases/tag/v1.3.0>
+公开 Release：<https://github.com/liusaipu/dsh-quicknotes/releases/tag/v1.3.1>
 
-- 直接下载 [dsh-quicknotes-1.3.0.tgz](https://github.com/liusaipu/dsh-notes/releases/download/v1.3.0/dsh-quicknotes-1.3.0.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
+- 直接下载 [dsh-quicknotes-1.3.1.tgz](https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.1/dsh-quicknotes-1.3.1.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
 - 或者把 Release 资源 URL 直接粘贴到同一个输入框：
 
 ```text
-https://github.com/liusaipu/dsh-notes/releases/download/v1.3.0/dsh-quicknotes-1.3.0.tgz
+https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.1/dsh-quicknotes-1.3.1.tgz
 ```
 
 安装器支持 tarball URL 或本地 tarball 路径，不需要 npm 账号或 GitHub 账号。若网络访问 GitHub 受限，先下载 tarball 再传过去。
@@ -131,7 +131,7 @@ https://github.com/liusaipu/dsh-notes/releases/download/v1.3.0/dsh-quicknotes-1.
 
 ```bash
 npm pack
-# 得到 dsh-quicknotes-1.3.0.tgz
+# 得到 dsh-quicknotes-1.3.1.tgz
 ```
 
 把 tarball 用 AirDrop、网盘或 U 盘复制到另一台机器，然后：
@@ -140,21 +140,21 @@ npm pack
 
 ### 2. 从 Git 仓库安装（可分享，不需要市场）
 
-把本目录推到一个 Git 仓库（仓库名 `dsh-notes`）：
+把本目录推到一个 Git 仓库（仓库名 `dsh-quicknotes`）：
 
 ```bash
-cd dsh-notes
+cd dsh-quicknotes
 git init -b main
 git add .
-git commit -m "dsh-quicknotes 1.3.0"
-git remote add origin https://github.com/liusaipu/dsh-notes.git
+git commit -m "dsh-quicknotes 1.3.1"
+git remote add origin https://github.com/liusaipu/dsh-quicknotes.git
 git push -u origin main
 ```
 
 在另一台机器上，**Plugins → Add plugin → Install a third-party plugin** 填入：
 
 ```
-git+https://github.com/liusaipu/dsh-notes.git#<40 位 commit SHA>
+git+https://github.com/liusaipu/dsh-quicknotes.git#<40 位 commit SHA>
 ```
 
 如果插件在仓库子目录，追加 `&path:/<子目录>`。commit SHA 可以用 `git rev-parse HEAD` 取得；固定 commit 比 `main` 更可复现。
@@ -170,7 +170,7 @@ DSH 本身没有内置的官方市场；“发现（Discover）”读取的是�
 
 > **2026-11-11 检查结果**：本插件以前确实被 dsh.so 收录过，展示名为 `@liusaipu/dsh-notes`（artifact slug `dsh-notes-7`，版本停在 `v1.1.0`）。但裸名 `dsh-notes` 已被多个其他仓库占用（`dsh-notes`、`dsh-notes-2` … `dsh-notes-8`），所以 dsh.so 给它加了 `-7` 后缀，裸名搜索很难找到。
 >
-> 从 1.3.0 起包名改为 **`dsh-quicknotes`**，准备用这个唯一名字提交新的 dsh.so 条目；旧的 `@liusaipu/dsh-notes` 条目不再更新，请安装新的 `dsh-quicknotes`。
+> 从 1.3.0 起包名改为 **`dsh-quicknotes`**；1.3.1 起 GitHub 仓库也改名为 `dsh-quicknotes`。准备用这个唯一名字提交新的 dsh.so 条目；旧的 `@liusaipu/dsh-notes` 条目不再更新，请安装新的 `dsh-quicknotes`。
 
 > 当前通过 Git / dsh.so 安装，不需要 npm。包名已经改为 `dsh-quicknotes`；注意 `dsh-notes`、`dsh-quick-notes`、`dsh-quicknote` 都已被其他项目使用，不要再使用这些名字投稿。
 
@@ -180,7 +180,7 @@ DSH 本身没有内置的官方市场；“发现（Discover）”读取的是�
 
 ```bash
 node scripts/make-market-index.mjs \
-  --repo https://github.com/liusaipu/dsh-notes \
+  --repo https://github.com/liusaipu/dsh-quicknotes \
   --commit "$(git rev-parse HEAD)"
 # 生成 market/index.json；把它提交并托管到 HTTPS（GitHub Pages / raw.githubusercontent.com 等）
 ```
