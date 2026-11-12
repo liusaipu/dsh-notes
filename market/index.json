@@ -32,12 +32,12 @@
       },
       "versions": [
         {
-          "version": "1.3.1",
-          "publishTimestamp": 1794406289,
+          "version": "1.3.2",
+          "publishTimestamp": 1794487112,
           "source": {
             "type": "git",
             "url": "https://github.com/liusaipu/dsh-quicknotes",
-            "commit": "782a5017167135cabaceeaa69644bcbf808afcf4"
+            "commit": "1943ab356a7330f9a80cd266386f05986c69a186"
           },
           "engines": {
             "dsh": ">=0.2.1-rc.5"
