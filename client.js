@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
     const TAG_MATCH = /#([\p{L}\p{N}_-]{1,32})/gu
     const FALLBACK_ABOUT = {
       name: 'dsh-quicknotes',
-      version: '1.3.1',
+      version: '1.3.2',
       developer: 'liusaipu',
       updatedAt: '2026-11-11',
       repository: 'https://github.com/liusaipu/dsh-quicknotes',
@@ -20,6 +20,20 @@ window.__ModuleLoader__.load({
     }
 
     const EN = {
+      'alarm.title': 'Reminder',
+      'alarm.date': 'Date',
+      'alarm.time': 'Time',
+      'alarm.notePlaceholder': 'What is it about? (optional)',
+      'alarm.hint': 'Rings 15 minutes before, while DSH is open',
+      'alarm.confirm': 'Set reminder',
+      'alarm.cancel': 'Cancel',
+      'alarm.set': 'Reminder set',
+      'alarm.past': 'That time has already passed',
+      'alarm.soon': 'Starting soon ·',
+      'alarm.late': 'Overdue ·',
+      'alarm.untitled': 'Reminder',
+      'alarm.snooze': 'Snooze 10m',
+      'alarm.dismiss': 'Dismiss',
       label: 'Quick Memo',
       title: 'Quick Memo',
       subtitle: 'Catch what is on your mind. Your notes follow you through your mailbox.',
@@ -141,6 +155,20 @@ window.__ModuleLoader__.load({
     }
 
     const ZH = {
+      'alarm.title': '提醒',
+      'alarm.date': '日期',
+      'alarm.time': '时间',
+      'alarm.notePlaceholder': '提醒什么事？（可选）',
+      'alarm.hint': '提前 15 分钟提醒，仅 DSH 打开时有效',
+      'alarm.confirm': '设置提醒',
+      'alarm.cancel': '取消',
+      'alarm.set': '已设置提醒',
+      'alarm.past': '这个时间已经过去了',
+      'alarm.soon': '即将开始 ·',
+      'alarm.late': '已过期 ·',
+      'alarm.untitled': '提醒',
+      'alarm.snooze': '推迟 10 分钟',
+      'alarm.dismiss': '知道了',
       label: '随手记',
       title: '随手记',
       subtitle: '记下此刻的想法，让笔记跟着邮箱走。',
@@ -1147,6 +1175,25 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function AlarmIcon() {
+      return h(
+        'svg',
+        {
+          width: 16,
+          height: 16,
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.9,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': true,
+        },
+        h('path', { d: 'M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z' }),
+        h('path', { d: 'M10 19a2 2 0 0 0 4 0' }),
+      )
+    }
+
     function CloseIcon() {
       return h(
         'svg',
@@ -1392,6 +1439,16 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
 .qm-about-link{font-size:12px;color:var(--dsw-alias-brand-primary);text-decoration:underline;text-underline-offset:2px}
 .qm-about-link:hover{color:color-mix(in srgb,var(--dsw-alias-brand-primary) 80%,var(--dsw-alias-label-primary))}
 .qm-about-note{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l1)}
+.qm-alarm-picker{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-brand-primary) 5%,transparent)}
+.qm-alarm-head{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.qm-alarm-row{display:grid;grid-template-columns:1.5fr 1fr;gap:8px}
+.qm-alarm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qm-alarm-actions .qm-help{flex:1;min-width:140px}
+.qm-alarm-banner{align-items:flex-start}
+.qm-alarm-item{display:flex;align-items:center;gap:12px}
+.qm-alarm-item+.qm-alarm-item{margin-top:8px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l1)}
+.qm-alarm-text{flex:1;min-width:0}
+.qm-alarm-item-actions{display:flex;gap:6px;flex:none}
 @media (max-width:720px){
   .qm-page{padding:20px 16px 60px}
   .qm-title{font-size:20px}
@@ -1402,6 +1459,97 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
   .qm-page *{animation:none!important;transition:none!important}
 }
 `
+
+    /* ---------- alarms ---------- */
+
+    const ALARM_LEAD_MS = 15 * 60 * 1000
+    const ALARM_SNOOZE_MS = 10 * 60 * 1000
+    const ALARM_STATE_KEY = 'dsh.flomo-notes.alarms.v1'
+    const ALARM_LINE = /^!!\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?:\s+(.*))?$/
+
+    /**
+     * A reminder lives in the first line of a note, so it rides along with the
+     * note through the mailbox and stays readable without this plugin:
+     *
+     *   !!2026-11-13 09:00 交周报
+     *   把上周的测试数据补进表格。
+     *
+     * Nothing is stored outside the note text: editing the line moves the
+     * reminder, deleting the note cancels it.
+     */
+    function parseAlarm(text) {
+      const line = String(text || '').split('\n')[0].trim()
+      const match = ALARM_LINE.exec(line)
+      if (!match) return null
+      const year = Number(match[1])
+      const month = Number(match[2])
+      const day = Number(match[3])
+      const hour = Number(match[4])
+      const minute = Number(match[5])
+      const at = new Date(year, month - 1, day, hour, minute, 0, 0).getTime()
+      if (!Number.isFinite(at)) return null
+      const probe = new Date(at)
+      // Reject rolled-over dates such as 2026-02-31 instead of silently
+      // firing in March.
+      if (
+        probe.getFullYear() !== year ||
+        probe.getMonth() !== month - 1 ||
+        probe.getDate() !== day ||
+        probe.getHours() !== hour ||
+        probe.getMinutes() !== minute
+      ) {
+        return null
+      }
+      return { at, note: (match[6] || '').trim() }
+    }
+
+    function defaultAlarmDraft(now = Date.now()) {
+      const date = new Date(now + 30 * 60 * 1000)
+      date.setSeconds(0, 0)
+      const pad = (value) => String(value).padStart(2, '0')
+      return {
+        date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+        time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+        note: '',
+      }
+    }
+
+    function alarmStamp(date, time, note) {
+      const clean = String(note || '').replace(/\s+/g, ' ').trim()
+      return `!!${date} ${time}${clean ? ` ${clean}` : ''}`
+    }
+
+    function alarmTimeOf(date, time) {
+      const at = new Date(`${date}T${time}:00`).getTime()
+      return Number.isFinite(at) ? at : null
+    }
+
+    function readAlarmState() {
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(ALARM_STATE_KEY) || '{}')
+        return parsed && typeof parsed === 'object' ? parsed : {}
+      } catch {
+        return {}
+      }
+    }
+
+    function writeAlarmState(value) {
+      try {
+        window.localStorage.setItem(ALARM_STATE_KEY, JSON.stringify(value))
+      } catch {
+        /* reminders still work for this session without storage */
+      }
+    }
+
+    function notifyAlarm(title, body) {
+      try {
+        if (typeof window.Notification !== 'function') return
+        if (window.Notification.permission !== 'granted') return
+        new window.Notification(title, { body, tag: 'dsh-flomo-alarm' })
+      } catch {
+        /* an unavailable notification surface never breaks the page */
+      }
+    }
 
     /* ---------- page ---------- */
 
@@ -1443,6 +1591,8 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const [notice, setNotice] = useState(null)
       const [uploading, setUploading] = useState(0)
       const [previewEdit, setPreviewEdit] = useState(false)
+      const [alarmDraft, setAlarmDraft] = useState(null)
+      const [alarms, setAlarms] = useState([])
 
       const versionRef = useRef(initial ? initial.version : 0)
       const activeRef = useRef(initialNotebook || '')
@@ -1460,6 +1610,7 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       const editTextRef = useRef('')
       const toastTimer = useRef(null)
       const confirmTimer = useRef(null)
+      const alarmState = useRef(readAlarmState())
 
       const toast = useCallback((text, kind = 'ok') => {
         if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -1470,6 +1621,48 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
       useEffect(() => {
         draftRef.current = draft
       }, [draft])
+
+      // Reminders are derived from the note text, so a sync from another
+      // device is enough to make a reminder appear here. Firing is local:
+      // every open window shows its own banner and nothing is written back.
+      useEffect(() => {
+        const scan = () => {
+          const now = Date.now()
+          const state = alarmState.current
+          const due = []
+          let changed = false
+          for (const note of notes) {
+            const alarm = parseAlarm(note.text)
+            if (!alarm) continue
+            const key = `${note.id}|${alarm.at}`
+            const record = state[key] || {}
+            if (record.dismissed) continue
+            const fireAt = Math.max(alarm.at - ALARM_LEAD_MS, record.snoozeUntil || 0)
+            if (now < fireAt) continue
+            if (!record.shown) {
+              state[key] = { ...record, shown: now }
+              changed = true
+              notifyAlarm(alarm.note || tr('alarm.untitled'), clockTime(alarm.at))
+            }
+            due.push({
+              key,
+              at: alarm.at,
+              note: alarm.note,
+              noteId: note.id,
+              late: now - alarm.at > 60000,
+            })
+          }
+          if (changed) writeAlarmState(state)
+          setAlarms((current) =>
+            current.length === due.length && current.every((item, index) => item.key === due[index].key)
+              ? current
+              : due,
+          )
+        }
+        scan()
+        const timer = setInterval(scan, 20000)
+        return () => clearInterval(timer)
+      }, [notes])
 
       useEffect(() => {
         queryRef.current = query
@@ -1740,6 +1933,42 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 ? `${pending} ${tr('unit.pending')}`
                 : tr('status.synced')
               : tr('status.local')
+
+      function cancelAlarm() {
+        setAlarmDraft(null)
+        const rest = draftRef.current.replace(/^!![ \t]*/, '')
+        draftRef.current = rest
+        setDraft(rest)
+      }
+
+      function confirmAlarm() {
+        const value = alarmDraft
+        if (!value || !value.date || !value.time) return
+        const stamp = alarmStamp(value.date, value.time, value.note)
+        const rest = draftRef.current.replace(/^!![ \t]*/, '').replace(/^\s+/, '')
+        const next = `${stamp}${rest ? `\n${rest}` : ''}`
+        draftRef.current = next
+        setDraft(next)
+        setAlarmDraft(null)
+        const at = alarmTimeOf(value.date, value.time)
+        if (at !== null && at < Date.now()) toast(tr('alarm.past'), 'error')
+        else toast(tr('alarm.set'))
+        if (composerRef.current) composerRef.current.focus()
+      }
+
+      function dismissAlarm(item) {
+        const state = alarmState.current
+        state[item.key] = { ...(state[item.key] || {}), dismissed: Date.now() }
+        writeAlarmState(state)
+        setAlarms((list) => list.filter((entry) => entry.key !== item.key))
+      }
+
+      function snoozeAlarm(item) {
+        const state = alarmState.current
+        state[item.key] = { ...(state[item.key] || {}), snoozeUntil: Date.now() + ALARM_SNOOZE_MS }
+        writeAlarmState(state)
+        setAlarms((list) => list.filter((entry) => entry.key !== item.key))
+      }
 
       async function submitDraft() {
         const text = draft.trim()
@@ -2507,6 +2736,47 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 ),
               )
             : null,
+          alarms.length > 0
+            ? h(
+                'div',
+                { className: 'qm-banner qm-alarm-banner', 'data-kind': 'warn', role: 'alert' },
+                h('span', { className: 'qm-icon' }, AlarmIcon()),
+                h(
+                  'div',
+                  { className: 'qm-banner-main' },
+                  alarms.map((item) =>
+                    h(
+                      'div',
+                      { key: item.key, className: 'qm-alarm-item' },
+                      h(
+                        'div',
+                        { className: 'qm-alarm-text' },
+                        h('div', { className: 'qm-banner-title' }, item.note || tr('alarm.untitled')),
+                        h(
+                          'div',
+                          { className: 'qm-banner-body' },
+                          `${item.late ? tr('alarm.late') : tr('alarm.soon')} ${clockTime(item.at)}`,
+                        ),
+                      ),
+                      h(
+                        'div',
+                        { className: 'qm-alarm-item-actions' },
+                        h(
+                          'button',
+                          { type: 'button', className: 'qm-mini', onClick: () => snoozeAlarm(item) },
+                          tr('alarm.snooze'),
+                        ),
+                        h(
+                          'button',
+                          { type: 'button', className: 'qm-mini', onClick: () => dismissAlarm(item) },
+                          tr('alarm.dismiss'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
           h(
             'div',
             { className: 'qm-composer' },
@@ -2525,6 +2795,9 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 const value = event.target.value
                 draftRef.current = value
                 setDraft(value)
+                // "!!" alone at the very start opens the reminder picker; any
+                // other use of the characters is ordinary note text.
+                if (value === '!!' && !alarmDraft) setAlarmDraft(defaultAlarmDraft())
               },
               onKeyDown: (event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -2533,6 +2806,65 @@ button.qm-status:hover{border-color:var(--dsw-alias-border-l1)}
                 }
               },
             }),
+            alarmDraft
+              ? h(
+                  'div',
+                  { className: 'qm-alarm-picker', role: 'group', 'aria-label': tr('alarm.title') },
+                  h('div', { className: 'qm-alarm-head' }, tr('alarm.title')),
+                  h(
+                    'div',
+                    { className: 'qm-alarm-row' },
+                    h('input', {
+                      type: 'date',
+                      className: 'qm-input',
+                      value: alarmDraft.date,
+                      'aria-label': tr('alarm.date'),
+                      onChange: (event) => setAlarmDraft({ ...alarmDraft, date: event.target.value }),
+                    }),
+                    h('input', {
+                      type: 'time',
+                      className: 'qm-input',
+                      value: alarmDraft.time,
+                      'aria-label': tr('alarm.time'),
+                      onChange: (event) => setAlarmDraft({ ...alarmDraft, time: event.target.value }),
+                    }),
+                  ),
+                  h('input', {
+                    type: 'text',
+                    className: 'qm-input',
+                    value: alarmDraft.note,
+                    placeholder: tr('alarm.notePlaceholder'),
+                    'aria-label': tr('alarm.notePlaceholder'),
+                    onChange: (event) => setAlarmDraft({ ...alarmDraft, note: event.target.value }),
+                    onKeyDown: (event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        confirmAlarm()
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        cancelAlarm()
+                      }
+                    },
+                  }),
+                  h(
+                    'div',
+                    { className: 'qm-alarm-actions' },
+                    h('span', { className: 'qm-help' }, tr('alarm.hint')),
+                    h('button', { type: 'button', className: 'qm-btn', onClick: cancelAlarm }, tr('alarm.cancel')),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        className: 'qm-btn qm-btn--primary',
+                        onClick: confirmAlarm,
+                        disabled: !alarmDraft.date || !alarmDraft.time,
+                      },
+                      tr('alarm.confirm'),
+                    ),
+                  ),
+                )
+              : null,
             h(
               'div',
               { className: 'qm-composer-bar' },

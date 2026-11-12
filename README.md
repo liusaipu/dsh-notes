@@ -83,6 +83,23 @@ $DSH_HOME/storages/flomo/
 
 图片路径现在是 `/flomo/api/image/<笔记本 id>/<图片 id>`；旧的无笔记本路径仍会回退到当前笔记本，兼容旧缓存。
 
+## 提醒（`!!`）
+
+在输入框里只输入 `!!`，会展开日期/时间/说明选择器；设置后会在草稿第一行写入：
+
+```text
+!!2026-11-13 09:00 交周报
+把上周的测试数据补进表格。
+```
+
+保存成普通笔记即可。到达目标时间前 15 分钟，页面顶部会出现提醒横幅，可以「推迟 10 分钟」或「知道了」。
+
+- 只支持未来某个时间点的一次性提醒，不做每天/每周重复；
+- 只在 DSH Desktop 打开时有效，关闭 DSH 不会在后台响；下次打开会补报为「已过期」；
+- 提醒就是笔记正文，跟着笔记同步；删除/修改那一行就等于取消/改时间；
+- 已读/推迟状态只存在本机 `localStorage`，两台设备各自提醒；
+- 系统通知取决于浏览器 `Notification` 权限，没授权时仍显示横幅。
+
 ## 使用
 
 1. 打开左侧栏的「随手记」。
@@ -116,13 +133,13 @@ $DSH_HOME/storages/flomo/
 
 ### 0. 从 GitHub Release 安装（推荐给其他人）
 
-公开 Release：<https://github.com/liusaipu/dsh-quicknotes/releases/tag/v1.3.1>
+公开 Release：<https://github.com/liusaipu/dsh-quicknotes/releases/tag/v1.3.2>
 
-- 直接下载 [dsh-quicknotes-1.3.1.tgz](https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.1/dsh-quicknotes-1.3.1.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
+- 直接下载 [dsh-quicknotes-1.3.2.tgz](https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.2/dsh-quicknotes-1.3.2.tgz)，然后 **Plugins → Add plugin → Install a third-party plugin** 填它的绝对路径；
 - 或者把 Release 资源 URL 直接粘贴到同一个输入框：
 
 ```text
-https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.1/dsh-quicknotes-1.3.1.tgz
+https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.2/dsh-quicknotes-1.3.2.tgz
 ```
 
 安装器支持 tarball URL 或本地 tarball 路径，不需要 npm 账号或 GitHub 账号。若网络访问 GitHub 受限，先下载 tarball 再传过去。
@@ -131,7 +148,7 @@ https://github.com/liusaipu/dsh-quicknotes/releases/download/v1.3.1/dsh-quicknot
 
 ```bash
 npm pack
-# 得到 dsh-quicknotes-1.3.1.tgz
+# 得到 dsh-quicknotes-1.3.2.tgz
 ```
 
 把 tarball 用 AirDrop、网盘或 U 盘复制到另一台机器，然后：
@@ -146,7 +163,7 @@ npm pack
 cd dsh-quicknotes
 git init -b main
 git add .
-git commit -m "dsh-quicknotes 1.3.1"
+git commit -m "dsh-quicknotes 1.3.2"
 git remote add origin https://github.com/liusaipu/dsh-quicknotes.git
 git push -u origin main
 ```
