@@ -39,6 +39,21 @@ pub struct SyncOutcome {
 
 pub fn verify_and_save(store: Arc<Mutex<Store>>, input: AccountInput) -> Result<(), String> {
     let account = normalize_account(&input)?;
+    let target = {
+        let guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
+        let target = guard.snapshot().active;
+        if let Some(name) = guard.email_conflict(&account.email, &target) {
+            return Err(format!(
+                "这个邮箱已经绑定在「{name}」笔记本上，一个邮箱只能绑定一个笔记本"
+            ));
+        }
+        target
+    };
+    let previous = {
+        let guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
+        guard.account_for(&target)
+    };
+
     let client = ClientBuilder::new(&account.host, account.port)
         .connect()
         .map_err(|error| format!("连接失败：{error}"))?;
@@ -50,8 +65,7 @@ pub fn verify_and_save(store: Arc<Mutex<Store>>, input: AccountInput) -> Result<
 
     save_password(&account.email, &input.password)?;
     let mut guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
-    let previous = guard.account();
-    guard.set_account(account.clone())?;
+    guard.set_account_for(&target, account.clone())?;
     drop(guard);
 
     if let Some(previous) = previous {
@@ -64,30 +78,34 @@ pub fn verify_and_save(store: Arc<Mutex<Store>>, input: AccountInput) -> Result<
 
 pub fn disconnect(store: Arc<Mutex<Store>>) -> Result<(), String> {
     let mut guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
-    if let Some(account) = guard.account() {
-        guard.clear_account()?;
+    let target = guard.snapshot().active;
+    if let Some(account) = guard.account_for(&target) {
+        guard.clear_account_for(&target)?;
         drop(guard);
         delete_password(&account.email);
     } else {
-        guard.clear_account()?;
+        guard.clear_account_for(&target)?;
     }
     Ok(())
 }
 
 pub fn sync(store: Arc<Mutex<Store>>) -> Result<SyncOutcome, String> {
-    let account = {
+    let (target, account) = {
         let guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
-        guard.account()
-    }
-    .ok_or_else(|| "还没有连接邮箱".to_string())?;
+        let target = guard.snapshot().active;
+        let account = guard
+            .account_for(&target)
+            .ok_or_else(|| "还没有连接邮箱".to_string())?;
+        (target, account)
+    };
 
     let password = load_password(&account.email)
         .map_err(|_| "邮箱密码未保存，请重新连接邮箱".to_string())?;
 
-    let result = sync_inner(store.clone(), &account, &password);
+    let result = sync_inner(store.clone(), &target, &account, &password);
     if let Err(error) = &result {
         if let Ok(mut guard) = store.lock() {
-            guard.set_sync_error(error);
+            let _ = guard.set_sync_error_for(&target, error);
         }
     }
     result
@@ -95,6 +113,7 @@ pub fn sync(store: Arc<Mutex<Store>>) -> Result<SyncOutcome, String> {
 
 fn sync_inner(
     store: Arc<Mutex<Store>>,
+    target: &str,
     account: &Account,
     password: &str,
 ) -> Result<SyncOutcome, String> {
@@ -128,10 +147,10 @@ fn sync_inner(
     let pending = {
         let mut guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
         for note in &remote_notes {
-            guard.merge_remote(note);
+            guard.merge_remote_for(target, note)?;
         }
         guard.save()?;
-        guard.pending_notes(MAX_PUSH_PER_SYNC)
+        guard.pending_notes_for(target, MAX_PUSH_PER_SYNC)?
     };
 
     let mut pushed = 0usize;
@@ -143,7 +162,7 @@ fn sync_inner(
             .finish()
             .map_err(|error| format!("写入笔记失败：{error}"))?;
         let mut guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
-        guard.mark_synced(&note.id, &pushed_rev);
+        guard.mark_synced_for(target, &note.id, &pushed_rev)?;
         guard.save()?;
         pushed += 1;
     }
@@ -151,7 +170,7 @@ fn sync_inner(
     let now = Utc::now().timestamp_millis();
     {
         let mut guard = store.lock().map_err(|_| "本地存储锁失败".to_string())?;
-        guard.finish_sync(max_uid, now, None);
+        guard.finish_sync_for(target, max_uid, now, None)?;
     }
     let _ = session.logout();
 
@@ -254,7 +273,7 @@ fn load_password(email: &str) -> Result<String, String> {
         .map_err(|error| format!("读取邮箱密码失败：{error}"))
 }
 
-fn delete_password(email: &str) {
+pub fn delete_password(email: &str) {
     if let Ok(entry) = Entry::new(KEYRING_SERVICE, email) {
         let _ = entry.delete_credential();
     }
@@ -269,14 +288,12 @@ mod tests {
     use super::*;
     use crate::store::Store;
     use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_store(name: &str) -> (Arc<Mutex<Store>>, PathBuf) {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("quick-memo-sync-{name}-{stamp}.json"));
+        let path = std::env::temp_dir().join(format!(
+            "quick-memo-sync-{name}-{}.json",
+            uuid::Uuid::new_v4()
+        ));
         let store = Store::open(path.clone()).unwrap();
         (Arc::new(Mutex::new(store)), path)
     }
@@ -304,19 +321,23 @@ mod tests {
         let (first, first_path) = temp_store("first");
         {
             let mut store = first.lock().unwrap();
-            store.set_account(account.clone()).unwrap();
+            let id = store.snapshot().active;
+            store.set_account_for(&id, account.clone()).unwrap();
             store.create_note("desktop live sync").unwrap();
         }
-        let first_result = sync_inner(first.clone(), &account, &password).unwrap();
+        let first_id = first.lock().unwrap().snapshot().active;
+        let first_result = sync_inner(first.clone(), &first_id, &account, &password).unwrap();
         assert!(first_result.pushed >= 1);
         assert_eq!(first.lock().unwrap().snapshot().pending, 0);
 
         let (second, second_path) = temp_store("second");
         {
             let mut store = second.lock().unwrap();
-            store.set_account(account.clone()).unwrap();
+            let id = store.snapshot().active;
+            store.set_account_for(&id, account.clone()).unwrap();
         }
-        let second_result = sync_inner(second.clone(), &account, &password).unwrap();
+        let second_id = second.lock().unwrap().snapshot().active;
+        let second_result = sync_inner(second.clone(), &second_id, &account, &password).unwrap();
         assert!(second_result.fetched >= 1);
         let snapshot = second.lock().unwrap().snapshot();
         assert!(snapshot.notes.iter().any(|note| note.text == "desktop live sync"));

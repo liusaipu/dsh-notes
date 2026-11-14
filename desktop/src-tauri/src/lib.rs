@@ -64,6 +64,45 @@ fn delete_note(id: String, state: State<'_, SharedStore>) -> Result<Snapshot, St
 }
 
 #[tauri::command]
+fn set_active_notebook(id: String, state: State<'_, SharedStore>) -> Result<Snapshot, String> {
+    {
+        let mut store = lock_store(state.inner())?;
+        store.set_active(&id)?;
+    }
+    snapshot(state.inner())
+}
+
+#[tauri::command]
+fn create_notebook(name: String, state: State<'_, SharedStore>) -> Result<Snapshot, String> {
+    {
+        let mut store = lock_store(state.inner())?;
+        store.create_notebook(&name)?;
+    }
+    snapshot(state.inner())
+}
+
+#[tauri::command]
+fn rename_notebook(id: String, name: String, state: State<'_, SharedStore>) -> Result<Snapshot, String> {
+    {
+        let mut store = lock_store(state.inner())?;
+        store.rename_notebook(&id, &name)?;
+    }
+    snapshot(state.inner())
+}
+
+#[tauri::command]
+fn delete_notebook(id: String, state: State<'_, SharedStore>) -> Result<Snapshot, String> {
+    let removed = {
+        let mut store = lock_store(state.inner())?;
+        store.delete_notebook(&id)?
+    };
+    if let Some(email) = removed.account_email {
+        sync::delete_password(&email);
+    }
+    snapshot(state.inner())
+}
+
+#[tauri::command]
 async fn save_account(
     input: AccountInput,
     state: State<'_, SharedStore>,
@@ -125,6 +164,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             load_notes,
+            set_active_notebook,
+            create_notebook,
+            rename_notebook,
+            delete_notebook,
             create_note,
             update_note,
             delete_note,

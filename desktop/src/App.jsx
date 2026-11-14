@@ -3,8 +3,23 @@ import { invoke } from '@tauri-apps/api/core'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
-const APP_VERSION = '0.2.0'
+const APP_VERSION = '0.3.0'
 const EMPTY_SYNC = { configured: false, lastSyncAt: 0, lastError: null }
+const TAG_RE = /#([\p{L}\p{N}_-]{1,32})/gu
+
+function tagsOf(text) {
+  const found = new Set()
+  for (const match of String(text || '').matchAll(TAG_RE)) found.add(match[1])
+  return [...found]
+}
+
+function tagCounts(notes) {
+  const counts = new Map()
+  for (const note of notes) {
+    for (const tag of tagsOf(note.text)) counts.set(tag, (counts.get(tag) || 0) + 1)
+  }
+  return [...counts.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+}
 
 function guessHost(email) {
   const domain = String(email || '').split('@').pop().toLowerCase()
@@ -35,11 +50,21 @@ function markdownToHtml(text) {
   return DOMPurify.sanitize(typeof html === 'string' ? html : String(html))
 }
 
-function NoteCard({ note, onEdit, onDelete }) {
+function NoteCard({ note, onEdit, onDelete, onTag }) {
   const html = useMemo(() => markdownToHtml(note.text), [note.text])
+  const tags = useMemo(() => tagsOf(note.text), [note.text])
   return (
     <article className="note">
       <div className="note-body" dangerouslySetInnerHTML={{ __html: html }} />
+      {tags.length > 0 ? (
+        <div className="note-tags">
+          {tags.map((tag) => (
+            <button type="button" className="tag-chip" key={tag} onClick={() => onTag(tag)}>
+              #{tag}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <footer className="note-foot">
         <time title={new Date(note.updatedAt).toLocaleString()}>{relativeTime(note.updatedAt)}</time>
         <div className="note-actions">
@@ -67,18 +92,31 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [busy, setBusy] = useState('')
   const [notice, setNotice] = useState(null)
+  const [activeTag, setActiveTag] = useState(null)
+  const [notebookMenu, setNotebookMenu] = useState(false)
+  const [notebookDialog, setNotebookDialog] = useState(null)
+  const [notebookSaving, setNotebookSaving] = useState(false)
   const noticeTimer = useRef(null)
   const composerRef = useRef(null)
+  const notebookMenuRef = useRef(null)
 
   const account = snapshot?.account || null
   const sync = snapshot?.sync || EMPTY_SYNC
   const pending = snapshot?.pending || 0
   const notes = snapshot?.notes || []
+  const notebooks = snapshot?.notebooks || []
+  const active = snapshot?.active || ''
+  const notebook = snapshot?.notebook || { id: active, name: '我的笔记' }
+  const tagEntries = useMemo(() => tagCounts(notes), [notes])
+  const filteredNotes = useMemo(
+    () => (activeTag ? notes.filter((note) => tagsOf(note.text).includes(activeTag)) : notes),
+    [notes, activeTag],
+  )
 
   const toast = useCallback((text, kind = 'ok') => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
     setNotice({ text, kind })
-    noticeTimer.current = setTimeout(() => setNotice(null), 3200)
+    noticeTimer.current = setTimeout(() => setNotice(null), 3400)
   }, [])
 
   const apply = useCallback((data) => {
@@ -105,6 +143,10 @@ export default function App() {
   }, [refresh])
 
   useEffect(() => {
+    if (activeTag && !tagEntries.some(([tag]) => tag === activeTag)) setActiveTag(null)
+  }, [activeTag, tagEntries])
+
+  useEffect(() => {
     if (!settingsOpen) return undefined
     const onKey = (event) => {
       if (event.key === 'Escape') setSettingsOpen(false)
@@ -112,6 +154,15 @@ export default function App() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [settingsOpen])
+
+  useEffect(() => {
+    if (!notebookMenu) return undefined
+    const onDown = (event) => {
+      if (!notebookMenuRef.current?.contains(event.target)) setNotebookMenu(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [notebookMenu])
 
   async function createNote() {
     const text = composer.trim()
@@ -177,6 +228,76 @@ export default function App() {
     }
   }
 
+  async function switchNotebook(book) {
+    if (book.id === active || busy) return
+    setBusy('notebook')
+    try {
+      const data = await invoke('set_active_notebook', { id: book.id })
+      apply(data)
+      setActiveTag(null)
+      setComposer('')
+      setEditing(null)
+      setNotebookMenu(false)
+    } catch (error) {
+      toast(String(error), 'error')
+    } finally {
+      setBusy('')
+    }
+  }
+
+  function openCreateNotebook() {
+    setNotebookMenu(false)
+    setNotebookDialog({ mode: 'create', name: `笔记本 ${notebooks.length + 1}`, error: '' })
+  }
+
+  function openRenameNotebook(book = notebook) {
+    setNotebookMenu(false)
+    setNotebookDialog({ mode: 'rename', id: book.id, name: book.name, error: '' })
+  }
+
+  async function submitNotebookName() {
+    if (!notebookDialog || notebookSaving) return
+    const name = notebookDialog.name.trim()
+    if (!name) {
+      setNotebookDialog((current) => ({ ...current, error: '笔记本名称不能为空' }))
+      return
+    }
+    setNotebookSaving(true)
+    try {
+      const data = notebookDialog.mode === 'create'
+        ? await invoke('create_notebook', { name })
+        : await invoke('rename_notebook', { id: notebookDialog.id, name })
+      apply(data)
+      setNotebookDialog(null)
+      setNotebookMenu(false)
+      setActiveTag(null)
+      setComposer('')
+      toast(notebookDialog.mode === 'create' ? '已新建笔记本' : '已重命名')
+    } catch (error) {
+      setNotebookDialog((current) => ({ ...current, error: String(error) }))
+    } finally {
+      setNotebookSaving(false)
+    }
+  }
+
+  async function removeNotebook(book) {
+    setNotebookMenu(false)
+    if (!window.confirm(`删除「${book.name}」？本机上的笔记和这个笔记本的邮箱配置会被移除；邮箱里的同步邮件不会删除。`)) return
+    setBusy('notebook')
+    try {
+      const data = await invoke('delete_notebook', { id: book.id })
+      apply(data)
+      setActiveTag(null)
+      setComposer('')
+      setEditing(null)
+      toast('已删除笔记本')
+    } catch (error) {
+      toast(String(error), 'error')
+    } finally {
+      setBusy('')
+    }
+  }
+
   if (loading) {
     return (
       <div className="app center">
@@ -192,7 +313,7 @@ export default function App() {
           <span className="mark" aria-hidden="true">Q</span>
           <div>
             <h1>Quick Memo</h1>
-            <p>本地笔记本 · 邮箱同步</p>
+            <p>{notebook.name} · {account ? '邮箱同步' : '仅本机'}</p>
           </div>
         </div>
         <div className="head-actions">
@@ -227,13 +348,74 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="tabs" aria-label="笔记本">
+        <div className="tabs-scroll">
+          {notebooks.map((book) => (
+            <button
+              type="button"
+              key={book.id}
+              className={`tab ${book.id === active ? 'active' : ''}`}
+              title={book.lastError || (book.configured ? `${book.name} · 已连接邮箱` : `${book.name} · 仅本机`)}
+              onClick={() => void switchNotebook(book)}
+              onDoubleClick={() => openRenameNotebook(book)}
+              disabled={Boolean(busy)}
+            >
+              <span className="tab-name">{book.name}</span>
+              {book.lastError ? (
+                <span className="tab-dot error" title={book.lastError} />
+              ) : book.pending > 0 ? (
+                <span className="tab-count">{book.pending}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="tab-add"
+          title="新建笔记本"
+          aria-label="新建笔记本"
+          onClick={openCreateNotebook}
+          disabled={notebooks.length >= 20 || Boolean(busy)}
+        >
+          +
+        </button>
+        <div className="tab-tools" ref={notebookMenuRef}>
+          <button
+            type="button"
+            className="icon-btn tab-more"
+            title="管理当前笔记本"
+            aria-label="管理当前笔记本"
+            onClick={() => setNotebookMenu((open) => !open)}
+            disabled={Boolean(busy)}
+          >
+            ⋯
+          </button>
+          {notebookMenu ? (
+            <div className="tab-menu" role="menu">
+              <button type="button" role="menuitem" onClick={() => openRenameNotebook(notebook)}>
+                重命名
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="danger-text"
+                onClick={() => void removeNotebook(notebook)}
+                disabled={notebooks.length <= 1}
+              >
+                删除笔记本
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </nav>
+
       {fatal ? <div className="banner error">{fatal}</div> : null}
       {sync.lastError ? <div className="banner error">上次同步失败：{sync.lastError}</div> : null}
       {!account ? (
         <div className="banner local-banner">
           <div>
             <strong>只保存在这台电脑</strong>
-            <span>连接邮箱后，笔记会同步到你的邮箱文件夹，并在多台设备间保持一致。</span>
+            <span>连接邮箱后，笔记会同步到你邮箱里的文件夹，并在多台设备间保持一致。一个邮箱只能绑定一个笔记本。</span>
           </div>
           <button type="button" className="small-btn" onClick={() => setSettingsOpen(true)}>
             连接邮箱
@@ -247,7 +429,7 @@ export default function App() {
             ref={composerRef}
             value={composer}
             rows={Math.min(8, Math.max(3, composer.split('\n').length))}
-            placeholder="现在在想什么？支持 Markdown…"
+            placeholder="现在在想什么？用 #标签 归类，支持 Markdown…"
             aria-label="新笔记"
             spellCheck={false}
             onChange={(event) => setComposer(event.target.value)}
@@ -259,7 +441,7 @@ export default function App() {
             }}
           />
           <div className="composer-bar">
-            <span className="hint">⌘/Ctrl + Enter 保存 · Markdown</span>
+            <span className="hint">#标签 · Markdown · ⌘/Ctrl + Enter 保存</span>
             <button
               type="button"
               className="primary"
@@ -271,8 +453,29 @@ export default function App() {
           </div>
         </section>
 
+        <div className="tag-bar" aria-label="标签筛选">
+          <button
+            type="button"
+            className={`tag ${!activeTag ? 'active' : ''}`}
+            onClick={() => setActiveTag(null)}
+          >
+            全部 <span className="tag-count">{notes.length}</span>
+          </button>
+          {tagEntries.map(([tag, count]) => (
+            <button
+              type="button"
+              key={tag}
+              className={`tag ${activeTag === tag ? 'active' : ''}`}
+              onClick={() => setActiveTag(tag)}
+            >
+              #{tag} <span className="tag-count">{count}</span>
+            </button>
+          ))}
+          {tagEntries.length === 0 ? <span className="tag-hint">写 #标签 就能在这里筛选</span> : null}
+        </div>
+
         <div className="list-head">
-          <span>{notes.length} 条笔记</span>
+          <span>{activeTag ? `#${activeTag} · ${filteredNotes.length} 条` : `${notes.length} 条笔记`}</span>
           <span>{pending > 0 ? `${pending} 条待同步` : account ? '已同步' : ''}</span>
         </div>
 
@@ -282,14 +485,21 @@ export default function App() {
             <h2>还没有笔记</h2>
             <p>写下一句话，剩下的可以慢一点。</p>
           </section>
+        ) : filteredNotes.length === 0 ? (
+          <section className="empty">
+            <div className="empty-icon">#</div>
+            <h2>这个标签下还没有笔记</h2>
+            <button type="button" className="small-btn" onClick={() => setActiveTag(null)}>查看全部</button>
+          </section>
         ) : (
           <section className="notes">
-            {notes.map((note) => (
+            {filteredNotes.map((note) => (
               <NoteCard
                 key={note.id}
                 note={note}
                 onEdit={startEdit}
                 onDelete={(item) => void removeNote(item)}
+                onTag={(tag) => setActiveTag(tag)}
               />
             ))}
           </section>
@@ -338,25 +548,67 @@ export default function App() {
 
       {settingsOpen ? (
         <SettingsDialog
+          notebook={notebook}
           account={account}
           sync={sync}
           pending={pending}
           busy={busy}
           onClose={() => setSettingsOpen(false)}
-          onSaved={(data) => {
+          onSaved={(data, message = '邮箱已连接') => {
             apply(data)
             setSettingsOpen(false)
-            toast('邮箱已连接')
+            toast(message)
           }}
           onSync={syncNow}
           onToast={toast}
         />
       ) : null}
+
+      {notebookDialog ? (
+        <div className="modal" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !notebookSaving) setNotebookDialog(null)
+        }}>
+          <form
+            className="dialog small-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={notebookDialog.mode === 'create' ? '新建笔记本' : '重命名笔记本'}
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submitNotebookName()
+            }}
+          >
+            <div className="dialog-head">
+              <div>
+                <h2>{notebookDialog.mode === 'create' ? '新建笔记本' : '重命名笔记本'}</h2>
+                <p className="dialog-sub">笔记本只在本机管理，名称不会上传到邮箱。</p>
+              </div>
+              <button type="button" className="icon-btn" onClick={() => setNotebookDialog(null)} disabled={notebookSaving}>×</button>
+            </div>
+            <label className="form-label">
+              <span>名称</span>
+              <input
+                value={notebookDialog.name}
+                maxLength={32}
+                autoFocus
+                onChange={(event) => setNotebookDialog((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+            {notebookDialog.error ? <div className="form-error">{notebookDialog.error}</div> : null}
+            <div className="dialog-actions">
+              <button type="button" className="ghost" onClick={() => setNotebookDialog(null)} disabled={notebookSaving}>取消</button>
+              <button type="submit" className="primary" disabled={notebookSaving || !notebookDialog.name.trim()}>
+                {notebookSaving ? '保存中…' : '保存'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function SettingsDialog({ account, sync, pending, busy, onClose, onSaved, onSync, onToast }) {
+function SettingsDialog({ notebook, account, sync, pending, busy, onClose, onSaved, onSync, onToast }) {
   const [showForm, setShowForm] = useState(!account)
   const [form, setForm] = useState({
     email: account?.email || '',
@@ -399,7 +651,7 @@ function SettingsDialog({ account, sync, pending, busy, onClose, onSaved, onSync
           folder: form.folder.trim() || 'DSH Notes',
         },
       })
-      onSaved(data)
+      onSaved(data, '邮箱已连接')
     } catch (error) {
       setFormError(String(error))
     } finally {
@@ -410,10 +662,9 @@ function SettingsDialog({ account, sync, pending, busy, onClose, onSaved, onSync
   async function disconnect() {
     try {
       const data = await invoke('disconnect_account')
-      onSaved(data)
+      onSaved(data, '已断开邮箱')
       setShowForm(true)
       setForm((current) => ({ ...current, password: '' }))
-      onToast('已断开邮箱')
     } catch (error) {
       onToast(String(error), 'error')
     }
@@ -436,7 +687,7 @@ function SettingsDialog({ account, sync, pending, busy, onClose, onSaved, onSync
         <div className="dialog-head">
           <div>
             <h2>邮箱同步</h2>
-            <p className="dialog-sub">每条笔记修订会写成一封邮件，放进你自己邮箱的同步文件夹。</p>
+            <p className="dialog-sub">当前笔记本：{notebook.name}。每条笔记修订会写成一封邮件，放进你自己邮箱的同步文件夹。</p>
           </div>
           <button type="button" className="icon-btn" onClick={onClose} disabled={submitting}>×</button>
         </div>
@@ -526,7 +777,7 @@ function SettingsDialog({ account, sync, pending, busy, onClose, onSaved, onSync
               />
             </label>
             <p className="help">
-              密码保存在 macOS 钥匙串 / Windows 凭据管理器，不写进笔记文件。QQ、163、Gmail、iCloud 请使用应用专用密码。
+              密码保存在 macOS 钥匙串 / Windows 凭据管理器，不写进笔记文件。QQ、163、Gmail、iCloud 请使用应用专用密码。一个邮箱只能绑定一个笔记本。
             </p>
             {formError ? <div className="form-error">{formError}</div> : null}
             <div className="dialog-actions">
