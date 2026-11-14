@@ -42,7 +42,7 @@ pub fn build_note_message(note: &Note, email: &str) -> Result<String, String> {
         "updatedAt": note.updated_at,
         "revBy": note.rev_by,
         "deleted": note.deleted,
-        "images": [],
+        "images": note.images,
     });
     let body = BASE64.encode(
         serde_json::to_vec(&payload).map_err(|error| format!("序列化笔记失败：{error}"))?,
@@ -117,6 +117,7 @@ mod tests {
             rev_by: "device-a".into(),
             deleted: false,
             synced_rev: None,
+            images: vec![json!({"id": "img-1", "mime": "image/png", "data": "AA=="})],
         };
         let raw = build_note_message(&note, "me@example.com").unwrap();
         let parsed = parse_note_message(raw.as_bytes()).unwrap();
@@ -125,6 +126,8 @@ mod tests {
         assert_eq!(parsed.updated_at, 200);
         assert_eq!(parsed.rev_by, "device-a");
         assert!(!parsed.deleted);
+        assert_eq!(parsed.images.len(), 1);
+        assert_eq!(parsed.images[0]["id"], "img-1");
     }
 
     #[test]
@@ -137,6 +140,7 @@ mod tests {
             rev_by: "device-b".into(),
             deleted: true,
             synced_rev: None,
+            images: Vec::new(),
         };
         let raw = build_note_message(&note, "me@example.com").unwrap();
         assert!(parse_note_message(raw.as_bytes()).unwrap().deleted);

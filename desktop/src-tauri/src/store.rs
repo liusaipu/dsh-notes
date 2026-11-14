@@ -25,6 +25,11 @@ pub struct Note {
     pub deleted: bool,
     #[serde(default)]
     pub synced_rev: Option<String>,
+    /// Raw `images` payloads from a remote revision. The desktop UI does not
+    /// render them yet, but keeping them means an edit never strips the bytes
+    /// that another device uploaded.
+    #[serde(default)]
+    pub images: Vec<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -209,6 +214,7 @@ impl Store {
                 rev_by: self.state.device_id.clone(),
                 deleted: false,
                 synced_rev: None,
+                images: Vec::new(),
             },
         );
         self.touch();
@@ -285,6 +291,7 @@ impl Store {
                 local.rev_by = remote.rev_by.clone();
                 local.deleted = remote.deleted;
                 local.synced_rev = Some(remote_rev);
+                local.images = remote.images.clone();
                 return true;
             }
             if remote_key == local_key {
@@ -304,6 +311,7 @@ impl Store {
                 rev_by: remote.rev_by.clone(),
                 deleted: remote.deleted,
                 synced_rev: Some(remote_rev),
+                images: remote.images.clone(),
             },
         );
         true
