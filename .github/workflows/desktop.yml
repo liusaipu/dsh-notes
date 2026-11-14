@@ -129,6 +129,11 @@ jobs:
           cp artifacts/msi/*.msi release/
           cp artifacts/quick-memo-windows-portable.zip release/
 
+      - name: Fetch stable DSH plugin tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download v1.3.2 --pattern dsh-quicknotes-1.3.2.tgz --dir release --clobber
+
       - name: Generate checksums
         working-directory: release
         run: |
@@ -141,7 +146,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Quick Memo Desktop 0.3.0 (unsigned MVP)
+          name: Quick Memo Desktop 0.3.0 + DSH 插件 1.3.2（桌面端预发布）
           body_path: desktop/RELEASE_NOTES_0.3.0.md
           prerelease: true
           make_latest: "false"
@@ -151,5 +156,6 @@ jobs:
             release/*.zip
             release/*.exe
             release/*.msi
+            release/*.tgz
             release/SHA256SUMS.txt
 

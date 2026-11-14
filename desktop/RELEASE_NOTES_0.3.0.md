@@ -1,4 +1,4 @@
-# Quick Memo Desktop 0.3.0
+# Quick Memo Desktop 0.3.0 + DSH 插件 1.3.2
 
 **Windows / macOS 原生桌面客户端 · 本地优先 · 邮箱同步 · 未签名 MVP**
 
@@ -51,7 +51,26 @@
 | macOS arm64 | [`Quick.Memo_0.3.0_aarch64.dmg`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_aarch64.dmg) | Apple Silicon；未签名 |
 | Windows x64 | [`quick-memo-windows-portable.zip`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/quick-memo-windows-portable.zip) | **推荐先试用**，解压即用，无需安装 |
 | Windows x64 | [`Quick.Memo_0.3.0_x64-setup.exe`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64-setup.exe) / [`Quick.Memo_0.3.0_x64_en-US.msi`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64_en-US.msi) | 安装版；未签名 |
+| **DSH 插件 1.3.2** | [`dsh-quicknotes-1.3.2.tgz`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/dsh-quicknotes-1.3.2.tgz) | 稳定版插件，可与桌面端共用邮箱同步 |
 | 校验 | [`SHA256SUMS.txt`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/SHA256SUMS.txt) | 所有发布文件的 SHA-256 |
+
+## 配套 DSH 插件 1.3.2
+
+这个 Release 同时附带稳定版 DSH 插件，方便桌面端和 DSH Desktop 使用同一套邮箱同步协议。
+
+- 插件包：[`dsh-quicknotes-1.3.2.tgz`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/dsh-quicknotes-1.3.2.tgz)
+- 插件独立发布页：<https://github.com/liusaipu/dsh-quicknotes/releases/tag/v1.3.2>
+- 安装（DSH Web profile）：
+
+  ```bash
+  dsh plugin --profile web add dsh-quicknotes-1.3.2.tgz
+  ```
+
+  或直接使用插件发布页里的 GitHub 安装命令。
+
+插件包含桌面端还没有补齐的能力：搜索、图片显示/插入、`!!` 提醒，以及和 DSH 插件一致的完整多笔记本交互。桌面端和插件可以连接同一个邮箱文件夹，文本与删除墓碑会互相合并；图片 payload 会被保留，但桌面端暂不显示。
+
+> 插件本身是稳定版 1.3.2；整个 Release 标记为 Pre-release 只因为桌面端安装包未签名、未公证。
 
 ### macOS
 
