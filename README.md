@@ -114,12 +114,13 @@ $DSH_HOME/storages/flomo/
 高级设置里可以修改 IMAP 服务器、端口和同步文件夹名。服务器地址留空时会按邮箱域名自动识别。
 
 
-## 桌面版（实验）
+## 桌面版（0.2.0 MVP）
 
-`desktop/` 是 Quick Memo 桌面版的第一个技术验证（Tauri 2 + Rust），当前只跑通 IMAP 登录、创建测试文件夹、写入一封带图片的笔记、读回并解析，还没有完整笔记界面和本地存储。
+`desktop/` 是 Quick Memo 桌面客户端（Tauri 2 + Rust），目前已经具备本地笔记、Markdown、邮箱账号设置和与 DSH 插件共用的 IMAP 同步协议；macOS 已构建验证，Windows 通过 GitHub Actions 矩阵构建。
 
 - 构建：`cd desktop && npm install && PATH="$HOME/.cargo/bin:$PATH" npm run tauri build`
-- 产物：`desktop/src-tauri/target/release/bundle/`（macOS `.app` / `.dmg`）
+- 产物：`desktop/src-tauri/target/release/bundle/`（macOS `.app` / `.dmg`，Windows NSIS/MSI）
+- CI：`.github/workflows/desktop.yml`（macOS + Windows）
 - 说明见 [desktop/README.md](desktop/README.md)
 
 ## 关于

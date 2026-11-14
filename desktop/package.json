@@ -1,7 +1,7 @@
 {
   "name": "quick-memo",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port 1420",
@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "dompurify": "^3.4.17",
+    "marked": "^18.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

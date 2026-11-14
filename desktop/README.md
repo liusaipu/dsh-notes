@@ -1,30 +1,35 @@
 # Quick Memo Desktop · Tauri 2 + Rust
 
-这是 `dsh-quicknotes` 项目的桌面版，产品名 **Quick Memo**。当前是 **IMAP 技术验证（spike）**，不是完整笔记应用。
+这是 `dsh-quicknotes` 项目的桌面客户端，产品名 **Quick Memo**。当前版本 **0.2.0**，是一个可用的本地笔记 MVP，并已接通与 DSH 插件相同的邮箱同步协议。
 
-## 当前已验证
+## 当前功能
 
-- macOS arm64 可编译、打包：
-  - `Quick Memo.app`：约 **10.4 MiB**
-  - `Quick Memo_0.1.0_aarch64.dmg`：约 **3.1 MiB**
-- Rust 侧真实 IMAP 往返（Ethereal 临时邮箱）：
-  - TLS 连接、LOGIN
-  - LIST / CREATE / SELECT
-  - APPEND 一封带 1×1 PNG 图片的笔记邮件
-  - UID SEARCH / FETCH / 解析 base64 JSON
-  - 读回文本和图片字节（`image_bytes = 68`）
-- 前端 Vite 构建、Tauri bundling 通过。
-- `cargo test`：
-  - 笔记 payload 解析测试
-  - 坏 body 拒绝测试
-  - `live_imap_roundtrip`（默认 `#[ignore]`，需要环境变量提供临时邮箱）
+- 本地笔记增删改，数据落在系统应用数据目录；
+- Markdown 渲染（marked + DOMPurify）；
+- 邮箱账号设置：IMAP 服务器、端口、同步文件夹；
+- 同步到自己的邮箱文件夹，和 DSH `dsh-quicknotes` 插件共用同一套 `v:1` 邮件协议；
+- 账号密码保存在 macOS 钥匙串 / Windows Credential Manager，不写入笔记文件；
+- 手动同步按钮、待同步数量、上次同步时间/错误提示；
+- 浅色/深色跟随系统；
+- macOS 与 Windows 共用同一套 Tauri + Rust 代码。
+
+同步协议目前发送/合并**文本和删除墓碑**；图片附件、桌面端多笔记本、后台自动同步和提醒功能还没有接入，DSH 插件里的这些能力仍可继续使用。
+
+## 已验证
+
+- `cargo test`：4 个本地校验测试通过；
+- **真实 IMAP 往返**（Ethereal 临时邮箱）：两个独立本地 Store 通过同一个邮箱文件夹同步，第一个写入、第二个读回并合并成功；
+- 前端 Vite 构建通过；jsdom UI smoke 渲染笔记、Markdown、本地状态和设置弹窗通过；
+- macOS arm64 打包通过：
+  - `Quick Memo.app`：约 10.7 MiB
+  - `Quick Memo_0.2.0_aarch64.dmg`：约 3.2 MiB
 
 ## 运行
 
 ```bash
 cd desktop
 npm install
-npm run tauri dev
+PATH="$HOME/.cargo/bin:$PATH" npm run tauri dev
 ```
 
 构建 macOS 包：
@@ -37,62 +42,41 @@ PATH="$HOME/.cargo/bin:$PATH" npm run tauri build
 
 ```text
 src-tauri/target/release/bundle/macos/Quick Memo.app
-src-tauri/target/release/bundle/dmg/Quick Memo_0.1.0_aarch64.dmg
+src-tauri/target/release/bundle/dmg/Quick Memo_0.2.0_aarch64.dmg
 ```
 
-Windows 构建尚未在本机验证；CI 上需要 WebView2、NSIS/MSI 和代码签名。
+## Windows
 
-## 界面当前能做什么
+Windows 构建需要 Rust、Node、WebView2（Windows 10/11 通常已安装）和 NSIS/WiX。现在仓库里已加入 `.github/workflows/desktop.yml`，可在 GitHub Actions 的 **Desktop app** workflow 手动运行，或推送 `desktop-v*` tag 触发 macOS/Windows 矩阵构建；产物会上传为 workflow artifact。
 
-- 填邮箱、应用专用密码、IMAP 服务器/端口和测试文件夹；
-- 服务器留空时按邮箱域名猜测常见服务商；
-- 点「测试连接并往返一封笔记」后运行 Rust `imap_probe`；
-- 显示文件夹列表、UID、邮件字节数、图片字节数和读回的笔记文本。
+目前本地只构建并验证了 macOS arm64，Windows 还没有在本机实机测试；正式分发前还要做 Authenticode 签名和 SmartScreen 验证。
 
-安全约束：
+## 数据位置
 
-- 测试文件夹默认 `DSH Notes Spike`，Rust 会拒绝写入 `DSH Notes`，避免污染正式笔记；
-- 每次测试会向测试文件夹追加一封测试邮件；
-- 当前版本不保存密码；完整版会使用 macOS Keychain / Windows Credential Manager；
-- 请使用应用专用密码/授权码，不要用邮箱登录密码。
+Tauri 的 app data 目录下：
 
-## 真实邮箱测试
+- macOS：`~/Library/Application Support/com.liusaipu.quickmemo/`
+- Windows：`%APPDATA%\com.liusaipu.quickmemo\`
 
-正常用界面即可。也可以直接跑 Rust ignored test：
+其中 `state.json` 是本地笔记和同步状态，`images/` 预留给后续图片功能。密码不在这里，而在系统凭据管理器。
 
-```bash
-cd src-tauri
-QUICK_MEMO_TEST_EMAIL=... \
-QUICK_MEMO_TEST_PASSWORD=... \
-QUICK_MEMO_TEST_HOST=imap.ethereal.email \
-QUICK_MEMO_TEST_PORT=993 \
-QUICK_MEMO_TEST_FOLDER="Quick Memo Spike test" \
-PATH="$HOME/.cargo/bin:$PATH" \
-cargo test live_imap_roundtrip -- --ignored --nocapture
-```
-
-## 下一步（完整 MVP）
-
-1. Rust 笔记模型 + SQLite 本地存储 + 图片目录；
-2. 完整 `v:1` 邮件协议（Markdown/图片/删除墓碑/LWW 合并）；
-3. 后台同步、休眠唤醒重试、图片回填、logout 超时保护；
-4. Quick Memo UI：快速输入、列表、Markdown、图片、标签、搜索；
-5. 托盘/菜单栏、全局快捷键、开机启动；
-6. macOS Developer ID + notarization；Windows Authenticode + WebView2/NSIS；
-7. GitHub Actions matrix、自动更新、Homebrew/winget。
-
-## 结构
+## 代码结构
 
 ```text
 desktop/
   src/                 React UI（Vite）
-  src-tauri/
-    src/lib.rs         Rust IMAP spike + 单元测试
-    src/main.rs
-    tauri.conf.json
-    capabilities/
-    icons/
-  app-icon.png         图标源文件
+  src-tauri/src/
+    lib.rs             Tauri commands
+    store.rs           JSON 本地存储、LWW 合并、删除墓碑
+    mime.rs            笔记邮件构建/解析
+    sync.rs            IMAP 账号验证与同步
+  src-tauri/tauri.conf.json
 ```
 
-插件本体仍在仓库根目录；桌面版不进入 `dsh-quicknotes` 插件的 npm tarball。
+## 已知限制
+
+- 单本地笔记本（DSH 插件支持多笔记本）；
+- 图片附件暂不显示/上传；
+- 同步是手动的，没有后台定时器；
+- 没有 `!!` 提醒；
+- 未签名、未公证，公开分发前需 Apple Developer ID + notarization / Windows 代码签名。
