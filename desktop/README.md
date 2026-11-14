@@ -2,6 +2,19 @@
 
 这是 `dsh-quicknotes` 项目的桌面客户端，产品名 **Quick Memo**。当前版本 **0.3.0**，是一个可用的本地笔记 MVP，并已接通与 DSH 插件相同的邮箱同步协议。
 
+## 下载 0.3.0
+
+发布页：[Quick Memo Desktop v0.3.0](https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0)
+
+| 平台 | 文件 | 说明 |
+| --- | --- | --- |
+| macOS arm64 | `Quick Memo_0.3.0_aarch64.dmg` | 未签名；Apple Silicon |
+| Windows x64 | `quick-memo-windows-portable.zip` | 解压即用，无需安装 |
+| Windows x64 | `Quick Memo_0.3.0_x64-setup.exe` / `.msi` | 安装版；未签名 |
+| 校验 | `SHA256SUMS.txt` | 发布文件 SHA-256 |
+
+完整的更新内容、安装步骤、验证范围和限制见 [RELEASE_NOTES_0.3.0.md](RELEASE_NOTES_0.3.0.md)。不安装测试：macOS 直接打开 DMG 里的 App；Windows 解压 portable zip 后运行 `quick-memo.exe`。
+
 ## 当前功能
 
 - 本地笔记增删改，数据落在系统应用数据目录；
@@ -83,4 +96,5 @@ desktop/
 - 图片暂不显示、不支持新增；从其他设备同步来的图片字节会保留；
 - 同步是手动的，没有后台定时器；
 - 没有 `!!` 提醒；
+- 没有搜索框（标签筛选已支持；全文搜索仍建议用 DSH 插件）；
 - 未签名、未公证，公开分发前需 Apple Developer ID + notarization / Windows 代码签名。

@@ -6,6 +6,12 @@
 
 仓库：<https://github.com/liusaipu/dsh-quicknotes>
 
+本仓库包含两个可独立使用的产品：
+
+- **DSH 插件**：`dsh-quicknotes`，功能完整，包含搜索、图片、提醒和多笔记本；
+- **Quick Memo 桌面客户端**：Tauri 2 + Rust 原生应用，**0.3.0 已发布**，支持 macOS / Windows，本地优先，并可通过邮箱与插件同步。  
+  下载：[Quick Memo Desktop v0.3.0](https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0) · [Release Notes](desktop/RELEASE_NOTES_0.3.0.md)
+
 > 插件包名：**`dsh-quicknotes`**（从 1.3.0 起），GitHub 仓库也从 `dsh-notes` 改名为 `dsh-quicknotes`（从 1.3.1 起）。旧的包名 `dsh-notes` 已停用；现有本地笔记和邮箱连接不会因为改名丢失。
 
 ## 设计：为什么用邮箱同步
@@ -114,14 +120,37 @@ $DSH_HOME/storages/flomo/
 高级设置里可以修改 IMAP 服务器、端口和同步文件夹名。服务器地址留空时会按邮箱域名自动识别。
 
 
-## 桌面版（0.3.0 MVP）
+## 桌面版（Quick Memo 0.3.0）
 
-`desktop/` 是 Quick Memo 桌面客户端（Tauri 2 + Rust），目前已经具备本地笔记、多笔记本、标签筛选、Markdown、邮箱账号设置和与 DSH 插件共用的 IMAP 同步协议；macOS 已构建验证，Windows 通过 GitHub Actions 矩阵构建。
+`desktop/` 是 Quick Memo 桌面客户端（Tauri 2 + Rust），和 DSH 插件共用同一套邮箱协议，但独立运行。
 
-- 构建：`cd desktop && npm install && PATH="$HOME/.cargo/bin:$PATH" npm run tauri build`
-- 产物：`desktop/src-tauri/target/release/bundle/`（macOS `.app` / `.dmg`，Windows NSIS/MSI）
-- CI：`.github/workflows/desktop.yml`（macOS + Windows）
-- 说明见 [desktop/README.md](desktop/README.md)
+**0.3.0 已发布：** <https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0>  
+完整说明：[Release Notes](desktop/RELEASE_NOTES_0.3.0.md)
+
+- 本地笔记、Markdown 渲染、编辑/删除；
+- 多笔记本：tab 切换、新建、双击重命名、删除，最多 20 个；
+- 标签：`#标签` 提示、顶部筛选、每条笔记的标签 chip；
+- 每个笔记本独立邮箱；一个邮箱只能绑定一个笔记本；
+- 和插件相同的 IMAP 同步协议，支持文本、删除墓碑和图片 payload；
+- macOS 钥匙串 / Windows Credential Manager 保存密码；
+- 手动同步、待同步数、上次同步时间/错误提示；
+- 浅色/深色跟随系统。
+
+**下载**：
+
+- macOS arm64：`Quick Memo_0.3.0_aarch64.dmg`（未签名）
+- Windows x64：`quick-memo-windows-portable.zip`（免安装，推荐先试）或 NSIS/MSI 安装器
+
+**验证**：Rust 7 个单元测试、真实 Ethereal 邮箱双 Store 同步、macOS 实机启动/旧数据迁移、Windows CI 启动冒烟均通过；Windows 完整 UI 交互、凭据管理器和 IMAP 仍未在 Windows 实机人工验证。包未签名，正式分发前需签名/公证。
+
+构建：
+
+```bash
+cd desktop && npm install
+PATH="$HOME/.cargo/bin:$PATH" npm run tauri build
+```
+
+产物在 `desktop/src-tauri/target/release/bundle/`；CI 在 `.github/workflows/desktop.yml`。详见 [desktop/README.md](desktop/README.md)。
 
 ## 关于
 
