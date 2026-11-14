@@ -9,7 +9,7 @@
 本仓库包含两个可独立使用的产品：
 
 - **DSH 插件**：`dsh-quicknotes`，功能完整，包含搜索、图片、提醒和多笔记本；
-- **Quick Memo 桌面客户端**：Tauri 2 + Rust 原生应用，**0.3.0 已发布**，支持 macOS / Windows，本地优先，并可通过邮箱与插件同步。  
+- **Quick Memo 桌面客户端**：Tauri 2 + Rust 原生应用，**0.3.0 预发布（Pre-release）**，支持 macOS / Windows，本地优先，并可通过邮箱与插件同步。  
   下载：[Quick Memo Desktop v0.3.0](https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0) · [Release Notes](desktop/RELEASE_NOTES_0.3.0.md)
 
 > 插件包名：**`dsh-quicknotes`**（从 1.3.0 起），GitHub 仓库也从 `dsh-notes` 改名为 `dsh-quicknotes`（从 1.3.1 起）。旧的包名 `dsh-notes` 已停用；现有本地笔记和邮箱连接不会因为改名丢失。
@@ -124,7 +124,7 @@ $DSH_HOME/storages/flomo/
 
 `desktop/` 是 Quick Memo 桌面客户端（Tauri 2 + Rust），和 DSH 插件共用同一套邮箱协议，但独立运行。
 
-**0.3.0 已发布：** <https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0>  
+**0.3.0 预发布：** <https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0>  
 完整说明：[Release Notes](desktop/RELEASE_NOTES_0.3.0.md)
 
 - 本地笔记、Markdown 渲染、编辑/删除；

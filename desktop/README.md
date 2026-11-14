@@ -2,9 +2,9 @@
 
 这是 `dsh-quicknotes` 项目的桌面客户端，产品名 **Quick Memo**。当前版本 **0.3.0**，是一个可用的本地笔记 MVP，并已接通与 DSH 插件相同的邮箱同步协议。
 
-## 下载 0.3.0
+## 下载 0.3.0（预发布）
 
-发布页：[Quick Memo Desktop v0.3.0](https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0)
+发布页：[Quick Memo Desktop v0.3.0（Pre-release）](https://github.com/liusaipu/dsh-quicknotes/releases/tag/desktop-v0.3.0)
 
 | 平台 | 文件 | 说明 |
 | --- | --- | --- |
