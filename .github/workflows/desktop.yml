@@ -50,6 +50,36 @@ jobs:
           Copy-Item src-tauri/target/release/*.dll portable/ -ErrorAction SilentlyContinue
           Compress-Archive -Path portable/* -DestinationPath quick-memo-windows-portable.zip -Force
 
+      - name: Windows startup and migration smoke
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stateDir = Join-Path $env:APPDATA 'com.liusaipu.quickmemo'
+          New-Item -ItemType Directory -Force $stateDir | Out-Null
+          $legacy = @'
+          {"version":1,"deviceId":"ci-legacy","sequence":1,"notes":{"ci-note":{"id":"ci-note","text":"ci #smoke","createdAt":1,"updatedAt":2,"revBy":"ci-legacy","deleted":false,"syncedRev":null}},"sync":{}}
+          '@
+          Set-Content -Path (Join-Path $stateDir 'state.json') -Value $legacy -Encoding UTF8
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--disable-gpu'
+          $exe = (Resolve-Path 'src-tauri/target/release/quick-memo.exe').Path
+          $app = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($app.HasExited) {
+            throw "Quick Memo exited during startup with code $($app.ExitCode)"
+          }
+          $statePath = Join-Path $stateDir 'state.json'
+          if (-not (Test-Path $statePath)) { throw 'state.json was not written' }
+          $state = Get-Content $statePath -Raw | ConvertFrom-Json
+          if ($null -eq $state.notebooks) { throw 'legacy state was not migrated to notebooks' }
+          if ($state.activeId -ne 'default') { throw "unexpected active notebook: $($state.activeId)" }
+          if (-not ($state.notebooks[0].notes.PSObject.Properties.Name -contains 'ci-note')) {
+            throw 'migrated note is missing'
+          }
+          Stop-Process -Id $app.Id -Force
+          Write-Host 'Windows startup + legacy migration smoke passed'
+
       - name: Upload portable Windows build
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
