@@ -24,6 +24,7 @@
 - **真实 IMAP 往返**（Ethereal 临时邮箱）：两个独立本地 Store 通过同一个邮箱文件夹同步，第一个写入、第二个读回并合并成功；
 - 前端 Vite 构建通过；jsdom UI smoke 渲染笔记、Markdown、标签筛选、笔记本切换/新建和设置弹窗通过；
 - macOS 0.3.0 实机启动通过；把旧版单笔记本 `state.json` 放进临时 HOME 后启动，自动迁移为 `default` 笔记本，笔记正文保留；
+- Windows CI 启动冒烟通过：启动 `quick-memo.exe`，进程保持运行，`%APPDATA%\com.liusaipu.quickmemo\state.json` 成功写入，旧版单笔记本迁移为 `default`，迁移笔记保留；
 - macOS arm64 打包通过：
   - `Quick Memo.app`：约 10.8 MiB
   - `Quick Memo_0.3.0_aarch64.dmg`：约 3.2 MiB
@@ -53,7 +54,7 @@ src-tauri/target/release/bundle/dmg/Quick Memo_0.3.0_aarch64.dmg
 
 Windows 构建需要 Rust、Node、WebView2（Windows 10/11 通常已安装）和 NSIS/WiX。现在仓库里已加入 `.github/workflows/desktop.yml`，可在 GitHub Actions 的 **Desktop app** workflow 手动运行，或推送 `desktop-v*` tag 触发 macOS/Windows 矩阵构建；产物会上传为 workflow artifact，Windows 还会额外上传免安装的 `quick-memo-windows-portable` zip。
 
-目前本地只构建并验证了 macOS arm64，Windows 还没有在本机实机测试；正式分发前还要做 Authenticode 签名和 SmartScreen 验证。
+CI 的 `windows-latest` 已运行启动和旧版迁移冒烟测试；完整 UI 交互、凭据管理器、IMAP 同步和安装器流程还没有在 Windows 实机验证。正式分发前还要做 Authenticode 签名和 SmartScreen 验证。
 
 ## 数据位置
 
