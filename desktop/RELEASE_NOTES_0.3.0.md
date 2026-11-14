@@ -48,10 +48,10 @@
 
 | 平台 | 文件 | 说明 |
 | --- | --- | --- |
-| macOS arm64 | `Quick Memo_0.3.0_aarch64.dmg` | Apple Silicon；未签名 |
-| Windows x64 | `quick-memo-windows-portable.zip` | **推荐先试用**，解压即用，无需安装 |
-| Windows x64 | `Quick Memo_0.3.0_x64-setup.exe` / `.msi` | 安装版；未签名 |
-| 校验 | `SHA256SUMS.txt` | 所有发布文件的 SHA-256 |
+| macOS arm64 | [`Quick.Memo_0.3.0_aarch64.dmg`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_aarch64.dmg) | Apple Silicon；未签名 |
+| Windows x64 | [`quick-memo-windows-portable.zip`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/quick-memo-windows-portable.zip) | **推荐先试用**，解压即用，无需安装 |
+| Windows x64 | [`Quick.Memo_0.3.0_x64-setup.exe`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64-setup.exe) / [`Quick.Memo_0.3.0_x64_en-US.msi`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64_en-US.msi) | 安装版；未签名 |
+| 校验 | [`SHA256SUMS.txt`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/SHA256SUMS.txt) | 所有发布文件的 SHA-256 |
 
 ### macOS
 
@@ -62,7 +62,7 @@
 
 ### Windows
 
-1. 下载 `quick-memo-windows-portable.zip` 并解压；
+1. 下载 [`quick-memo-windows-portable.zip`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/quick-memo-windows-portable.zip) 并解压；
 2. 运行 `quick-memo.exe`；Windows 10/11 通常已带 WebView2 Runtime；
 3. 如果 SmartScreen 拦截，选择「更多信息 → 仍要运行」；
 4. 也可以使用安装器，但安装版和便携版用的是同一份应用代码。

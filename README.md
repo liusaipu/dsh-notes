@@ -138,8 +138,8 @@ $DSH_HOME/storages/flomo/
 
 **下载**：
 
-- macOS arm64：`Quick Memo_0.3.0_aarch64.dmg`（未签名）
-- Windows x64：`quick-memo-windows-portable.zip`（免安装，推荐先试）或 NSIS/MSI 安装器
+- macOS arm64：[`Quick.Memo_0.3.0_aarch64.dmg`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_aarch64.dmg)（未签名）
+- Windows x64：[`quick-memo-windows-portable.zip`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/quick-memo-windows-portable.zip)（免安装，推荐先试）或 [NSIS 安装器](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64-setup.exe) / [MSI](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64_en-US.msi)
 
 **验证**：Rust 7 个单元测试、真实 Ethereal 邮箱双 Store 同步、macOS 实机启动/旧数据迁移、Windows CI 启动冒烟均通过；Windows 完整 UI 交互、凭据管理器和 IMAP 仍未在 Windows 实机人工验证。包未签名，正式分发前需签名/公证。
 

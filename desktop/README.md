@@ -8,10 +8,10 @@
 
 | 平台 | 文件 | 说明 |
 | --- | --- | --- |
-| macOS arm64 | `Quick Memo_0.3.0_aarch64.dmg` | 未签名；Apple Silicon |
-| Windows x64 | `quick-memo-windows-portable.zip` | 解压即用，无需安装 |
-| Windows x64 | `Quick Memo_0.3.0_x64-setup.exe` / `.msi` | 安装版；未签名 |
-| 校验 | `SHA256SUMS.txt` | 发布文件 SHA-256 |
+| macOS arm64 | [`Quick.Memo_0.3.0_aarch64.dmg`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_aarch64.dmg) | 未签名；Apple Silicon |
+| Windows x64 | [`quick-memo-windows-portable.zip`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/quick-memo-windows-portable.zip) | 解压即用，无需安装 |
+| Windows x64 | [`Quick.Memo_0.3.0_x64-setup.exe`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64-setup.exe) / [`MSI`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/Quick.Memo_0.3.0_x64_en-US.msi) | 安装版；未签名 |
+| 校验 | [`SHA256SUMS.txt`](https://github.com/liusaipu/dsh-quicknotes/releases/download/desktop-v0.3.0/SHA256SUMS.txt) | 发布文件 SHA-256 |
 
 完整的更新内容、安装步骤、验证范围和限制见 [RELEASE_NOTES_0.3.0.md](RELEASE_NOTES_0.3.0.md)。不安装测试：macOS 直接打开 DMG 里的 App；Windows 解压 portable zip 后运行 `quick-memo.exe`。
 
