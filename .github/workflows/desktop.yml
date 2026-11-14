@@ -40,6 +40,23 @@ jobs:
         working-directory: desktop
         run: npm run tauri build
 
+      - name: Prepare portable Windows build
+        if: runner.os == 'Windows'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force portable | Out-Null
+          Copy-Item src-tauri/target/release/quick-memo.exe portable/ -ErrorAction Stop
+          Copy-Item src-tauri/target/release/*.dll portable/ -ErrorAction SilentlyContinue
+          Compress-Archive -Path portable/* -DestinationPath quick-memo-windows-portable.zip -Force
+
+      - name: Upload portable Windows build
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-memo-windows-portable
+          path: desktop/quick-memo-windows-portable.zip
+
       - name: Upload macOS bundles
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
