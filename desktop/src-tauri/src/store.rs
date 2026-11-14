@@ -295,6 +295,10 @@ impl Store {
                 return true;
             }
             if remote_key == local_key {
+                // Same revision, but a previous local copy may predate image
+                // support (or have lost its bytes). The mailbox copy is
+                // authoritative for the payload.
+                local.images = remote.images.clone();
                 local.synced_rev = Some(remote_rev);
                 return true;
             }
